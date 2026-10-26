@@ -1,0 +1,68 @@
+[package]
+name = "desktop-app-shell"
+version = "0.1.0"
+description = "Tauri 2 desktop app shell: architecture + auto-update + design system"
+edition = "2021"
+
+[features]
+default = ["notifications"]
+# notifications 功能包含桌面通知。用 cargo feature 而非 #[cfg(not(test))] 门控：
+# 后者对集成测试无效（lib 作为依赖编译时不带 test cfg）。
+# 注：2026-10-27 定位到的 0xc0000139 真正根因是 comctl32 v6 manifest 缺失
+# （见 build.rs），与 notification 插件无直接关系；但默认关闭它能让测试
+# 二进制少链一堆 GUI 原生代码，保持测试轻量。
+notifications = ["dep:tauri-plugin-notification"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+# 给 cargo test 目标补嵌 comctl32 v6 manifest（缘由见 build.rs 长注释）
+embed-resource = "3"
+
+[dependencies]
+# Tauri core
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+# 更新源 env 覆盖（APP_UPDATE_ENDPOINT）构造 Url 用，与插件共用同一份 url 2.x
+url = "2"
+tauri-plugin-process = "2"
+tauri-plugin-notification = { version = "2", optional = true }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
+
+# Async runtime（后台任务：可见性复核、任务自愈重启）
+tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
+
+# Serialization（配置 JSON 持久化 + 更新事件推送）
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# 日志（env_logger 初始化在 main.rs）
+log = "0.4"
+env_logger = "0.11"
+
+# 托盘图标代码绘制（PNG 解码 + 缩放 + 状态圆点）
+png = "0.17"
+
+# Windows 专属：DWM 圆角（Win11 窗口装饰）
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.56", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+] }
+
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
+[profile.release]
+# codegen-units 用默认 16 而不是 1：跨单元优化已由 lto = "thin" 提供，
+# 两者收益重叠。压到 1 只是禁用 LLVM 并行代码生成——编译慢 2~3 倍，
+# 却换不来多少体积或性能收益。
+# ⚠️ 体积红线：改动后必须核对 installer 体积——壳子基线应 ≤ 10MB；
+# 若涨超预算就改回 1。
+codegen-units = 16
+lto = "thin"
+opt-level = "s"
+strip = "symbols"
