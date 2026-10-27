@@ -63,11 +63,31 @@ pub fn load_config(config_dir: &std::path::Path) -> AppConfig {
 }
 
 /// 写配置：先写临时文件再 rename，避免半截文件。
+///
+/// 临时文件名带**进程 id + 进程内自增序号**，不用固定的 `config.json.tmp`：
+/// 固定名下两个并发的 save_config（前端连点两次开关就会发生）会互相覆盖对方的
+/// 半截内容，且 rename 时序错乱时可能把空/坏文件换成正式配置——「读起来还是
+/// 默认值，但用户明明改过」这种灵异故障就是这么来的。写失败时清掉残骸，
+/// 不在配置目录留 `.tmp` 垃圾。
 pub fn save_config(config_dir: &std::path::Path, cfg: &AppConfig) -> Result<(), String> {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static TMP_SEQ: AtomicU32 = AtomicU32::new(0);
+
     let path = config_path(config_dir);
-    let tmp = path.with_extension("json.tmp");
+    let tmp = config_dir.join(format!(
+        "config.json.{}.{}.tmp",
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, Ordering::Relaxed)
+    ));
     let text = serde_json::to_string_pretty(cfg).map_err(|e| format!("序列化配置失败: {e}"))?;
-    std::fs::write(&tmp, text).map_err(|e| format!("写临时配置失败: {e}"))?;
-    std::fs::rename(&tmp, &path).map_err(|e| format!("替换配置失败: {e}"))?;
+    let write_result = std::fs::write(&tmp, text).map_err(|e| format!("写临时配置失败: {e}"));
+    if let Err(e) = write_result {
+        let _ = std::fs::remove_file(&tmp); // 清残骸（可能压根没写进去）
+        return Err(e);
+    }
+    if let Err(e) = std::fs::rename(&tmp, &path) {
+        let _ = std::fs::remove_file(&tmp); // rename 失败（跨卷/权限），别留垃圾
+        return Err(format!("替换配置失败: {e}"));
+    }
     Ok(())
 }

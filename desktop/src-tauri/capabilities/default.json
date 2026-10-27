@@ -14,16 +14,13 @@
     "core:window:allow-set-size",
     "core:window:allow-show",
     "core:window:allow-set-focus",
-    "updater:default",
     "process:default",
-    "opener:default",
     "clipboard-manager:default",
     "clipboard-manager:allow-read-text",
     "clipboard-manager:allow-read-image",
     "clipboard-manager:allow-write-text",
     "dialog:default",
     "dialog:allow-open",
-    "dialog:allow-save",
-    "opener:allow-open-path"
+    "dialog:allow-save"
   ]
 }

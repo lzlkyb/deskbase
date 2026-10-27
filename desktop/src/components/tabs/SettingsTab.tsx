@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { invoke } from "../../lib/tauri";
+import { invoke, invokeOrToast } from "../../lib/tauri";
+import { toast } from "../ui/toast";
 import { APP_INFO, CHANGELOG, CATEGORY_LABELS } from "../../lib/about";
 import { Card } from "../ui/card";
 import { Modal } from "../ui/Modal";
@@ -25,23 +26,30 @@ export function SettingsTab({ onChanged }: { onChanged?: () => void }) {
         const cfg = await invoke<{ autostartEnabled: boolean; releaseWebviewOnClose: boolean }>(
           "get_config",
         );
-        setAutostart(cfg.autostartEnabled);
         setReleaseOnClose(cfg.releaseWebviewOnClose);
       } catch {
         // 读失败保持默认值即可，不阻断页面
       }
+      // 自启开关必须显示**系统真源**（get_autostart 读注册表/LaunchAgent）：
+      // 配置里的 autostartEnabled 只是镜像值——用户在系统设置或安装器里改过自启，
+      // 镜像不会同步，UI 会显示一个与事实不符的状态。
+      const enabled = await invokeOrToast<boolean>("get_autostart", undefined, "读取开机自启状态失败");
+      if (typeof enabled === "boolean") setAutostart(enabled);
     })();
   }, []);
 
   const save = async (patch: Record<string, unknown>) => {
+    // 这里自己管 toast：invokeOrToast 对 Result<()> 命令（save_config 成功也返回
+    // undefined）分不清成败，只能自己 try/catch。保存失败必须让用户知道——
+    // 「改了没生效还不响」是最差的失败形态。
     try {
       const cfg = await invoke<{ autostartEnabled: boolean; releaseWebviewOnClose: boolean }>(
         "get_config",
       );
       await invoke("save_config", { config: { ...cfg, ...patch } });
       onChanged?.();
-    } catch {
-      // invokeOrToast 已提示；这里保持静默避免双 toast
+    } catch (e) {
+      toast(`保存设置失败：${e instanceof Error ? e.message : String(e)}`, "error");
     }
   };
 
@@ -55,9 +63,20 @@ export function SettingsTab({ onChanged }: { onChanged?: () => void }) {
           sub="登录系统时自动启动（托盘常驻）"
           checked={autostart}
           onChange={async (v) => {
+            // 乐观置值 + 失败回滚：set_autostart 返回最终生效状态（Result<bool>），
+            // 拿不到布尔值就是失败了——UI 不能显示一个系统里不存在的状态。
             setAutostart(v);
-            await invoke("set_autostart", { enabled: v });
-            await save({ autostartEnabled: v });
+            const finalState = await invokeOrToast<boolean>(
+              "set_autostart",
+              { enabled: v },
+              "设置开机自启失败",
+            );
+            if (typeof finalState !== "boolean") {
+              setAutostart(!v);
+              return;
+            }
+            setAutostart(finalState);
+            await save({ autostartEnabled: finalState });
           }}
         />
         <ToggleRow
@@ -93,7 +112,11 @@ export function SettingsTab({ onChanged }: { onChanged?: () => void }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => void invoke("open_external", { url: APP_INFO.repoUrl })}
+              // open_external 有 scheme 白名单（Rust 侧 is_allowed_external_url），
+              // 非法 scheme 会 reject——用 invokeOrToast 让失败可见，而不是静默丢弃。
+              onClick={() =>
+                void invokeOrToast("open_external", { url: APP_INFO.repoUrl }, "打开仓库链接失败")
+              }
             >
               打开
             </Button>
