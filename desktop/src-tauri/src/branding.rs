@@ -39,8 +39,15 @@ mod tests {
     fn tray_tips_embed_display_name() {
         // 单一真相源的机器保证：三条文案都必须以显示名开头。手抄显示名会在这里现形——
         // rename-app.mjs 改 APP_DISPLAY_NAME 后，托盘文案若停留在旧名字，此测试必红。
-        for tip in [tray_tip_running(), tray_tip_stopped(), tray_tip_ip_changed()] {
-            assert!(tip.starts_with(APP_DISPLAY_NAME), "托盘文案应以显示名开头：{tip}");
+        for tip in [
+            tray_tip_running(),
+            tray_tip_stopped(),
+            tray_tip_ip_changed(),
+        ] {
+            assert!(
+                tip.starts_with(APP_DISPLAY_NAME),
+                "托盘文案应以显示名开头：{tip}"
+            );
             assert!(
                 tip.len() > APP_DISPLAY_NAME.len(),
                 "文案只剩显示名、没有状态后缀：{tip}"
@@ -50,7 +57,11 @@ mod tests {
 
     #[test]
     fn tray_tips_are_distinct() {
-        let tips = [tray_tip_running(), tray_tip_stopped(), tray_tip_ip_changed()];
+        let tips = [
+            tray_tip_running(),
+            tray_tip_stopped(),
+            tray_tip_ip_changed(),
+        ];
         assert_ne!(tips[0], tips[1]);
         assert_ne!(tips[1], tips[2]);
         assert_ne!(tips[0], tips[2]);
