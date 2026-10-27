@@ -65,7 +65,7 @@ function success(msg) {
 }
 
 /**
- * 读一个产物目录，返回 { fileName, signature }；目录不存在或无匹配文件返回 null。
+ * 读一个产物目录，返回 { fileName, signature, mtimeMs, size }；目录不存在或无匹配文件返回 null。
  * 签名缺失直接 fail：写出空签名的 updater.json 会在运行时校验失败、自动更新整条断掉，
  * 且毫无报错。宁可在构建期就红，也不发带病版本。
  */
@@ -88,7 +88,8 @@ function readArtifact({ dir, pick, label }) {
   if (!signature) {
     fail(`${sigFile} 内容为空 → 无法为 updater 生成有效签名，终止发布（避免自动更新校验失败）。`);
   }
-  return { fileName: pkgFile, signature };
+  const stat = fs.statSync(path.join(dirPath, pkgFile));
+  return { fileName: pkgFile, signature, mtimeMs: stat.mtimeMs, size: stat.size };
 }
 
 /** Windows：NSIS 安装包。 */
@@ -130,20 +131,49 @@ function buildDownloadUrl(tag, fileName) {
 }
 
 function loadMergeBase() {
-  if (!MERGE_INTO) return {};
+  if (!MERGE_INTO) return { platforms: {}, version: null };
   if (!fs.existsSync(MERGE_INTO)) {
     warn(`UPDATER_MERGE_INTO 指向的文件不存在，本次只写本平台条目：${MERGE_INTO}`);
-    return {};
+    return { platforms: {}, version: null };
   }
   try {
     const base = JSON.parse(fs.readFileSync(MERGE_INTO, "utf-8"));
     const platforms = base.platforms || {};
     info(`已从 ${MERGE_INTO} 读入已有平台条目：${Object.keys(platforms).join(", ") || "(空)"}`);
-    return platforms;
+    return { platforms, version: base.version ?? null };
   } catch (e) {
     // 不 fail：对方 job 可能产出了一个损坏文件，不应该拖着本平台一起发不了。
     warn(`解析 UPDATER_MERGE_INTO 失败，本次只写本平台条目：${e.message}`);
-    return {};
+    return { platforms: {}, version: null };
+  }
+}
+
+/**
+ * 产物新鲜度校验（Y11）。
+ *
+ * 事故形态：bump 版本后**忘了重新构建**，直接跑 updater:generate——脚本读到上次
+ * 构建的旧 exe 与配套 .sig，写出的 updater.json 却声明新版本号。验签能过（sig 与
+ * 这个 exe 本就匹配），客户端"升级"后跑的还是旧二进制，版本号与内容错配，且毫无报错。
+ *
+ * 判据（零配置启发式）：版本 bump 必然改写 tauri.conf.json / Cargo.toml（sync-version
+ * 干的），所以**产物必须比版本文件新**。产物旧于版本文件 = 构建发生在改版本之前，
+ * 一定是旧构建。
+ */
+function assertArtifactsFresh(artifacts) {
+  const versionFiles = ["src-tauri/tauri.conf.json", "src-tauri/Cargo.toml"]
+    .map((p) => path.join(ROOT, p))
+    .filter((p) => fs.existsSync(p))
+    .map((p) => fs.statSync(p).mtimeMs);
+  if (!versionFiles.length) return; // 没有版本文件可比（极端场景），跳过
+  const versionNewest = Math.max(...versionFiles);
+  for (const a of artifacts) {
+    if (a.mtimeMs + 1000 < versionNewest) {
+      fail(
+        `${a.fileName} 的构建时间早于版本文件（tauri.conf.json / Cargo.toml）——\n` +
+          `这几乎意味着 bump 版本后忘了重新构建，updater.json 会声明新版本却指向旧包。\n` +
+          `修复：先 npm run build 重新构建，再跑 updater:generate。`,
+      );
+    }
   }
 }
 
@@ -162,7 +192,19 @@ function main() {
   info(`Release Tag: ${tag}`);
   info(`扫描构建产物: ${BUNDLE_DIR}`);
 
-  const platforms = loadMergeBase();
+  const merge = loadMergeBase();
+  // 合并基线版本校验（Y11）：base 是上一个版本的 updater.json 时，合并它的 platforms
+  // 条目会产出"新 windows + 旧 mac"的混合 manifest，且 version 字段声明新版本——
+  // macOS 用户下到旧包、版本号还对不上。文件不存在/解析失败已在上方 warn 放行
+  // （对方 job 挂了的场景），但文件存在且版本不同就是拉错了文件，必须 fail。
+  if (merge.version && merge.version !== version) {
+    fail(
+      `UPDATER_MERGE_INTO 的基线版本是 ${merge.version}，与当前版本 ${version} 不一致。\n` +
+        `合并旧版本条目会发布「新 Windows + 旧 mac」的混合 manifest（macOS 用户下到旧包）。\n` +
+        `修复：确认 MERGE_INTO 指向的是本次发版另一个平台 job 产出的 updater.json。`,
+    );
+  }
+  const platforms = merge.platforms;
 
   const win = findWindowsArtifact();
   if (win) {
@@ -192,6 +234,9 @@ function main() {
         "确保 tauri.conf.json 中 bundle.createUpdaterArtifacts = true"
     );
   }
+
+  // 新鲜度闸（Y11）：在写出 updater.json 之前拦住"旧构建 + 新版本号"的组合。
+  assertArtifactsFresh([win, mac].filter(Boolean));
 
   const updaterJson = {
     version,

@@ -75,6 +75,12 @@ jobs:
       - name: cargo test
         run: cargo test --no-default-features
         working-directory: desktop/src-tauri
+      # clippy 齐平：macOS 侧（check-macos）跑 `--all-targets -D warnings`，
+      # Windows 侧原先只有 test —— 注释却声称"两边齐平"。lint 漏一边等于没门禁
+      # （Windows 主力平台上的警告永远没人看见）。
+      - name: cargo clippy (与 macOS 侧同等严格)
+        run: cargo clippy --all-targets --no-default-features -- -D warnings
+        working-directory: desktop/src-tauri
 
   # macOS 编译门禁。为何需要它：多数桌面项目主力平台是 Windows、开发机也是
   # Windows，而平台差异（平台专属 crate feature、缺失的 cfg(not(windows)) 分支）
@@ -465,7 +471,10 @@ jobs:
 
       - name: 镜像发布产物到 Gitee（国内加速，可选）
         shell: pwsh
-        continue-on-error: true
+        # 不设 continue-on-error：本步骤内部的 Fail 已经区分了"没配 secret"（exit 0
+        # 跳过）与"真失败"（exit 1）。continue-on-error 会把后者也染成绿色——
+        # 正是 cc-bridge v2.4.0~v2.5.0"四个版本绿灯但镜像 404"的教训：
+        # 镜像失败时客户端首选源读到旧 manifest，国内用户静默看不到新版本。
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           GITEE_REPOSITORY: ${{ secrets.GITEE_REPOSITORY }}
@@ -506,7 +515,11 @@ jobs:
             Push-Location $mirrorDir
             git checkout --orphan releases 2>&1 | Write-Host
             if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "创建 releases 孤儿分支失败" }
+            # 必须查退出码：orphan 分支没有 HEAD commit，reset --hard 可能失败
+            # （Failed to resolve 'HEAD'）——失败时索引里留着 clone 下来的全部文件，
+            # 后面的 commit 会把它们一起提交（见 commit 处的 pathspec 注释）。
             git reset --hard 2>&1 | Write-Host
+            if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "orphan 分支重置失败（git reset --hard）：索引未清空，终止以免提交意外内容" }
             Pop-Location
           }
           if (-not (Test-Path $mirrorDir)) { Fail "镜像工作目录不存在：$mirrorDir" }
@@ -536,8 +549,15 @@ jobs:
           Push-Location $mirrorDir
           git add -A latest 2>&1 | Write-Host
           if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "git add 失败" }
-          git -c user.email="ci@shell.local" -c user.name="shell-ci" commit -m "release: mirror $tag to Gitee (latest)" 2>&1 | Write-Host
-          if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "git commit 失败（内容与上一版完全相同时也会非零）" }
+          # commit 带 `-- latest` pathspec：只提交 latest/ 下的暂存内容。
+          # 没有它，索引里任何残留（如 orphan 重置没清干净时留下的旧文件）
+          # 都会被一起提交到 releases 分支——提交范围必须与 add 的范围显式一致。
+          git -c user.email="ci@shell.local" -c user.name="shell-ci" commit -m "release: mirror $tag to Gitee (latest)" -- latest 2>&1 | Write-Host
+          if ($LASTEXITCODE -ne 0) {
+            Pop-Location
+            # 无变更可提交（与上一版字节级相同）不是错误：Gitee 上已经是这份内容。
+            Write-Host "⚠️ git commit 返回非零：latest/ 与上一版完全相同（无新内容可提交），视为已同步"
+          }
 
           Write-Host "====== git push ======"
           git push --progress --verbose origin releases 2>&1 | Write-Host

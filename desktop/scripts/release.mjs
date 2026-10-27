@@ -88,6 +88,15 @@ function bumpSemver(cur, type, next) {
   if (type === "minor") return `${a}.${b + 1}.0`;
   return `${a}.${b}.${c + 1}`; // patch
 }
+/** semver 核心三元组（剥掉预发布/构建后缀）；非法返回 null。 */
+function semverTuple(v) {
+  const core = String(v)
+    .replace(/^v/, "")
+    .replace(/[-+].*$/, "")
+    .split(".")
+    .map(Number);
+  return core.length === 3 && core.every((n) => Number.isInteger(n) && n >= 0) ? core : null;
+}
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -108,7 +117,36 @@ async function ask(question, defaultValue) {
 async function main() {
   const current = readCargoVersion();
   const next = bumpSemver(current, bumpType, explicitVersion);
+
+  // semver 校验 + 版本倒退检查（Y9）：--version 传错格式会污染 Cargo.toml/tauri.conf/
+  // package.json 三处与 tag 名；next <= current 则是把已发过的版本再发一遍。
+  // 两个检查都放在任何写操作之前——半截状态比直接失败难收拾得多。
+  if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/.test(next)) {
+    console.error(
+      `\x1b[31m[RELEASE ERROR]\x1b[0m 版本号 "${next}" 不是合法 semver（x.y.z[-prerelease][+build]）`,
+    );
+    process.exit(1);
+  }
+  const curT = semverTuple(current);
+  const nextT = semverTuple(next);
+  if (!curT || !nextT) {
+    console.error(
+      `\x1b[31m[RELEASE ERROR]\x1b[0m 无法解析版本号：current=${current} next=${next}`,
+    );
+    process.exit(1);
+  }
+  const cmp = nextT[0] - curT[0] || nextT[1] - curT[1] || nextT[2] - curT[2];
+  // 预发布版本（如 1.0.0 → 1.0.0-beta.1）core 三元组相等，放行；相同 core 且无
+  // 预发布后缀 = 原地重发，拒绝。
+  if (cmp < 0 || (cmp === 0 && !next.includes("-"))) {
+    console.error(
+      `\x1b[31m[RELEASE ERROR]\x1b[0m 新版本 ${next} 必须大于当前版本 ${current}`,
+    );
+    process.exit(1);
+  }
+
   console.log(`\x1b[32m发版计划：\x1b[0m ${current} → ${next}`);
+  const tagName = `v${next}`; // dry-run 输出与第 8 步 tag 预检共用
 
   if (DRY_RUN) {
     console.log("[dry-run] 以下为将执行步骤，不改动任何文件：");
@@ -118,7 +156,8 @@ async function main() {
     console.log("  4. README.md 版本历史表插入行");
     console.log("  5. node scripts/gen-changelog.mjs（重新生成 changelog.generated.ts）");
     if (!SKIP_TESTS) console.log("  6. cargo test + cargo clippy --no-default-features 门禁");
-    console.log(`  7. git add 版本文件+CHANGELOG+README+generated.ts → commit → push → tag v${next} → push tag`);
+    else console.log("  6. [--skip-tests] 仅 cargo check --no-default-features 保底");
+    console.log(`  7. semver/tag 预检 → git add 版本文件+CHANGELOG+README+generated.ts → commit → push → tag ${tagName} → push tag`);
     return;
   }
 
@@ -239,8 +278,32 @@ async function main() {
 
   // 5. 插入 README 版本历史行
   let readme = readTextNormalized(README_PATH);
+  // 🔴 R1：README 没有版本历史表时，replace 是静默 no-op——一路打印"插入版本行"成功，
+  // 直到第 8 步 git 漏纳检查才以"README 未纳入暂存"这个误导性错误 exit 1。
+  // 干净克隆（未手工补表的用户）100% 命中。改为插入前显式校验表存在。
+  const TABLE_RE = /(\n\| v[\d.]+\s*\|)/;
+  if (!TABLE_RE.test(readme)) {
+    console.error(
+      "\x1b[31m[RELEASE ERROR]\x1b[0m README.md 找不到版本历史表（形如 `| v1.2.3 | 摘要 |` 的行）。\n" +
+        "发版脚本靠这张表记录版本摘要，表缺失时**不会**静默跳过。\n" +
+        "修复：在 README 的「版本历史」小节补表头（| 版本 | 摘要 | + 分隔行）与一行现有版本。",
+    );
+    process.exit(1);
+  }
   const readmeRow = `| v${next} | ${summary} |`;
-  readme = readme.replace(/(\n\| v[\d.]+\s*\|)/, `\n${readmeRow}$1`);
+  // 重复版本行检查：next 已在表里说明这个版本发过（或表没更新），再插就是重复行。
+  if (new RegExp(`\\|\\s*v${next.replace(/\./g, "\\.")}\\s*\\|`).test(readme)) {
+    console.error(
+      `\x1b[31m[RELEASE ERROR]\x1b[0m README 版本历史表里已存在 v${next} 行（这个版本发过了？）`,
+    );
+    process.exit(1);
+  }
+  const readmeBefore = readme;
+  readme = readme.replace(TABLE_RE, `\n${readmeRow}$1`);
+  if (readme === readmeBefore) {
+    console.error("\x1b[31m[RELEASE ERROR]\x1b[0m README 版本行插入失败（replace 未生效，格式变过？）");
+    process.exit(1);
+  }
   fs.writeFileSync(README_PATH, readme, "utf-8");
   console.log(`\x1b[32m[5/7]\x1b[0m README.md 插入版本行`);
 
@@ -256,9 +319,46 @@ async function main() {
     run("cargo test --no-default-features", path.join(DESKTOP, "src-tauri"));
     console.log("\x1b[35m[门禁] cargo clippy --no-default-features\x1b[0m");
     run("cargo clippy --no-default-features", path.join(DESKTOP, "src-tauri"));
+  } else {
+    // --skip-tests 跳的是"慢门禁"（test/clippy），不是"不编译"：check 只要几十秒，
+    // 却能拦住拼写错误/类型错误这类一发版就红的事。留个保底。
+    console.log("\x1b[35m[门禁] --skip-tests：跳过 test/clippy，仍跑 cargo check 保底\x1b[0m");
+    run("cargo check --no-default-features", path.join(DESKTOP, "src-tauri"));
   }
 
   // 8. git add + commit + push + tag
+  // tag 预检（Y10）：本地 tag 已存在时 `git tag` 会失败——但那一刻 commit 和 push
+  // 都已经完成，CI 已被触发，留下"版本号发了、tag 没打上"的半完成状态。
+  // 预检放在 commit **之前**，失败时没有任何东西被推出去。
+  try {
+    execSync(`git rev-parse -q --verify refs/tags/${tagName}`, { cwd: ROOT, stdio: "pipe" });
+    console.error(
+      `\x1b[31m[RELEASE ERROR]\x1b[0m 本地 tag ${tagName} 已存在（这个版本发过了？）。\n` +
+        `如确需重发：git tag -d ${tagName} && git push origin :refs/tags/${tagName}`,
+    );
+    process.exit(1);
+  } catch {
+    // 本地不存在 = 正常路径
+  }
+  // 远端 tag 也查一遍（clone 后没 fetch tags 的机器上，本地没有远端可能有）。
+  // 查不到不阻断（离线/无 origin 权限时不该卡住发版），push tag 时会暴露。
+  try {
+    const remoteTag = execSync(`git ls-remote --tags origin refs/tags/${tagName}`, {
+      cwd: ROOT,
+      stdio: "pipe",
+    })
+      .toString()
+      .trim();
+    if (remoteTag) {
+      console.error(
+        `\x1b[31m[RELEASE ERROR]\x1b[0m 远端 origin 上已有 tag ${tagName}。\n` +
+          `如确需重发：git push origin :refs/tags/${tagName}`,
+      );
+      process.exit(1);
+    }
+  } catch {
+    // 无法访问 origin：交给 push tag 环节暴露
+  }
   const files = [
     "desktop/src-tauri/Cargo.toml",
     "desktop/src-tauri/Cargo.lock",
@@ -294,12 +394,20 @@ async function main() {
     return;
   }
   run(`git push origin main`);
-  run(`git tag v${next}`);
-  run(`git push origin v${next}`);
-  console.log(`\x1b[32m✅ 发版 v${next} 完成，CI 正在构建。\x1b[0m`);
+  run(`git tag ${tagName}`);
+  run(`git push origin ${tagName}`);
+  console.log(`\x1b[32m✅ 发版 ${tagName} 完成，CI 正在构建。\x1b[0m`);
 }
 
 main().catch((e) => {
   console.error(`\x1b[31m[RELEASE ERROR]\x1b[0m ${e.message || e}`);
+  // Y8：中途失败（门禁红 / git 操作失败）时工作区已留下半截改动，用户最需要的是
+  // "怎么收拾"。不给指引的话，常见后果是带着改了一半的版本文件继续开发。
+  console.error(
+    "\n\x1b[33m恢复指引：\x1b[0m 本次发版可能已改动部分文件（Cargo.toml / CHANGELOG.md / README.md / changelog.generated.ts 等）。\n" +
+      "  · 放弃本次发版：git checkout -- .   （会丢弃所有未提交改动，先 git status 确认没有别的工作成果）\n" +
+      "  · 保留改动手工处理：git status 查看后自行决定去留\n" +
+      "  · 已 commit 但 push 失败：git log --oneline -3 确认后重试 push",
+  );
   process.exit(1);
 });

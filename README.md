@@ -97,6 +97,9 @@ npm run tauri dev      # 开发（前端 HMR；改 Rust 需重启）
 npm run vite:build     # 只构建前端（tsc + vite）
 npm test               # vitest 单测
 npm run lint           # eslint（react-hooks 规则是重点）
+npm run motion:check   # 真实浏览器动效回归（重型手动项：需 npx playwright install，
+                       # 且先起 vite preview 让 motion-preview.html 在 1425 端口可达；
+                       # 不进 pre-push 7 项门禁，改 UI 动效时手动跑）
 
 cd src-tauri
 cargo clippy --all-targets --no-default-features -- -D warnings
@@ -106,6 +109,15 @@ cargo test  --no-default-features     # 16 单测 + tests/update_flow.rs 集成�
 
 cd desktop && npm run release -- --patch    # 发版（tag，见 CLAUDE.md「发版流程」）
 ```
+
+## 版本历史
+
+`npm run release` 会自动在表头插入新版本行（此表缺失时发版会明确报错中止）。
+更新弹窗里的详细内容来自 `CHANGELOG.md`，这里只留一行摘要。
+
+| 版本 | 摘要 |
+| ---- | ---- |
+| v0.1.0 | 壳子基线：Tauri 2 技术架构 + 自动更新闭环 + 设计系统三层资产 |
 
 ## 更新架构怎么工作
 

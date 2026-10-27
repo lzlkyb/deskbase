@@ -19,12 +19,16 @@
  *   node desktop/scripts/fake-update-server.mjs --mode noclen      # 不给 Content-Length
  *   node desktop/scripts/fake-update-server.mjs --mode 404         # 元数据 404
  *   node desktop/scripts/fake-update-server.mjs --mode badjson     # 返回一段坏 JSON
+ *   node desktop/scripts/fake-update-server.mjs --dir <bundle目录>  # serve 真实安装包（Layer 2/3 用）
  *
  * ── 参数 ──────────────────────────────────────────────────────────
  *   --port <n>        监听端口，默认 8899
  *   --version <ver>   updater.json 里声明的版本，默认 99.9.9（必须大于运行中的版本才会触发更新）
- *   --size-mb <n>     假安装包大小，默认 20
+ *   --size-mb <n>     假安装包大小，默认 20（--dir 模式下无效，用真实文件大小）
  *   --rate-kbps <n>   下载限速（KB/s），默认 2048；0 = 不限速（进度会一闪而过）
+ *   --dir <path>      serve 真实安装包：从该目录找 *.exe（其次 *.app.tar.gz），
+ *                     URL/大小/文件名全部用真实的。用于 Layer 2/3 真安装链路
+ *                     （配合真实签名 key 测「下载→验签通过→安装」）。没找到则回退假包。
  *   --mode <m>        ok | slow | stall | noclen | 404 | badjson | zero
  *                     slow   = 限速到 300KB/s，方便截图看读数
  *                     stall  = 正常传，但在 ~30% 处静默卡 4 秒（测前端「等待响应…」）
@@ -43,6 +47,8 @@
  */
 
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { randomBytes } from "node:crypto";
 // 从 node:timers 显式 import：本项目 eslint 的 globals 里没有 setTimeout/setImmediate，
 // 直接裸用会被 no-undef 拦（`npx eslint .` 是门禁之一）。
@@ -59,8 +65,29 @@ const SIZE_MB = Number(arg("size-mb", "20"));
 const MODE = arg("mode", "ok");
 const RATE_KBPS = MODE === "slow" ? 300 : Number(arg("rate-kbps", "2048"));
 const SIG = arg("sig", "ZmFrZS1zaWduYXR1cmUtZm9yLXVwZGF0ZXItdGVzdA==");
-const BIN_NAME = "shell-fake_99.9.9_x64-setup.exe";
-const TOTAL = MODE === "zero" ? 0 : SIZE_MB * 1024 * 1024;
+const SERVE_DIR = arg("dir", null);
+
+// ── 真实产物模式（--dir）──────────────────────────────────────
+// Layer 2/3 要验「下载→验签通过→安装→重启」整条链，必须 serve 真实的 exe/tar.gz
+// （配合真实签名）。没有 --dir 时保持假包模式：随机字节 + 假签名 ⇒ 验签必失败。
+// 探测顺序：*.exe（NSIS）优先，其次 *.app.tar.gz（macOS updater 包）；.sig 不 serve。
+let realFile = null; // { name, abs }
+if (SERVE_DIR) {
+  if (!fs.existsSync(SERVE_DIR)) {
+    console.error(`[fake-update] --dir 目录不存在：${SERVE_DIR}（回退假包模式）`);
+  } else {
+    const files = fs.readdirSync(SERVE_DIR).filter((f) => !f.endsWith(".sig"));
+    const pick = files.find((f) => f.endsWith(".exe")) ?? files.find((f) => f.endsWith(".app.tar.gz"));
+    if (pick) {
+      realFile = { name: pick, abs: path.join(SERVE_DIR, pick) };
+    } else {
+      console.error(`[fake-update] --dir 里没找到 .exe / .app.tar.gz：${SERVE_DIR}（回退假包模式）`);
+    }
+  }
+}
+
+const BIN_NAME = realFile ? realFile.name : "shell-fake_99.9.9_x64-setup.exe";
+const TOTAL = MODE === "zero" ? 0 : realFile ? fs.statSync(realFile.abs).size : SIZE_MB * 1024 * 1024;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const manifest = {
@@ -114,7 +141,10 @@ const server = http.createServer((req, res) => {
     }
 
     // 速率控制：把总时长摊到固定分片数上。分片 32KB，按目标速率算每片应耗时多少。
+    // 真实产物模式：整体读入内存一次（安装包 ≤15MB，可接受；流式反而要把 fd/offset
+    // 管理带进来，收益不抵复杂度）。
     const CHUNK = 32 * 1024;
+    const realBuf = realFile ? fs.readFileSync(realFile.abs) : null;
     const bytesPerSec = RATE_KBPS > 0 ? RATE_KBPS * 1024 : 0;
     const delayMs = bytesPerSec > 0 ? (CHUNK / bytesPerSec) * 1000 : 0;
     const stallAt = MODE === "stall" ? Math.floor(TOTAL * 0.3) : -1;
@@ -124,8 +154,8 @@ const server = http.createServer((req, res) => {
     const pump = () => {
       if (res.writableEnded || res.destroyed) return;
       const n = Math.min(CHUNK, TOTAL - sent);
-      // 内容无所谓（反正签名会失败），但用随机字节避免被任何中间层压缩/短路。
-      res.write(randomBytes(n));
+      // 内容无所谓（假包反正签名会失败），但用随机字节避免被任何中间层压缩/短路。
+      res.write(realBuf ? realBuf.subarray(sent, sent + n) : randomBytes(n));
       sent += n;
       if (sent >= TOTAL) {
         res.end();
@@ -150,8 +180,14 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   log(`监听 ${BASE}`);
-  log(`版本=${VERSION}  大小=${SIZE_MB}MB  限速=${RATE_KBPS || "不限"}KB/s  mode=${MODE}`);
-  log(`签名=占位串（下载完成会验签失败 ⇒ 不会安装，安全）`);
+  log(`版本=${VERSION}  大小=${(TOTAL / 1024 / 1024).toFixed(1)}MB  限速=${RATE_KBPS || "不限"}KB/s  mode=${MODE}`);
+  if (realFile) {
+    log(`模式=真实产物（${realFile.name}，来自 ${SERVE_DIR}）`);
+    log(`签名=占位串——验签会失败。Layer 2/3 真安装需配真实签名：把 .sig 内容传给 --sig，`);
+    log(`      并把签名用的公钥配置进 tauri.conf.json 的 updater.pubkey。`);
+  } else {
+    log(`签名=占位串（下载完成会验签失败 ⇒ 不会安装，安全）`);
+  }
   log("");
   log("把应用指过来（Git Bash）：");
   log(`  export APP_UPDATE_ENDPOINT=${BASE}/updater.json`);
