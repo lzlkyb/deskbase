@@ -20,6 +20,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_RESTART_DELAY_SECS, UpdateProvider, friendlyError, useUpdate, type UpdateState } from "./UpdateContext";
+import { APP_SLUG } from "../lib/about";
 
 // ─── 事件总线与 IPC 打桩 ────────────────────
 // vi.hoisted：mock 工厂会被提升到 import 之前，所以共享状态必须一起提升。
@@ -67,8 +68,10 @@ const EVENTS = [  "update:checking",
   "update:uptodate",
 ];
 
-const LAST_CHECK_KEY = "shell_last_update_check";
-const DISMISSED_KEY = "shell_dismissed_update_version";
+// 存储键与 UpdateContext 同源动态推导（APP_SLUG 前缀）——断言壳子改名后键自动跟随，
+// 不再有 "shell_" 硬编码残留。
+const LAST_CHECK_KEY = `${APP_SLUG}.last_update_check`;
+const DISMISSED_KEY = `${APP_SLUG}.dismissed_update_version`;
 
 // React 18 的 act 需要这个标记，否则每次 act 都会打「environment is not configured」警告，
 // 且异步副作用不会被正确 flush。
@@ -243,6 +246,21 @@ describe("事件驱动的状态转移", () => {
     expect(state().update?.version).toBe("99.9.9");
   });
 
+  it("下载进行中收到 update:uptodate 不回退状态（与 checking/available 同款守卫）", async () => {
+    await mount();
+    await emit("update:available", available());
+    await act(async () => {
+      void state().downloadAndInstall();
+    });
+    expect(state().status).toBe("downloading");
+
+    await emit("update:uptodate");
+    // 没有守卫时这里会被打成 uptodate：进度读数归零、徽章变「已是最新」，
+    // 而下载还在后台跑——用户以为完事了，其实安装包还在下。
+    expect(state().status).toBe("downloading");
+    expect(state().update?.version).toBe("99.9.9");
+  });
+
   it("update:ready 置 100% 并清掉下载守卫（可以再发起下载）", async () => {
     await mount();
     await emit("update:available", available());
@@ -300,6 +318,40 @@ describe("下载重入防护", () => {
       void state().downloadAndInstall();
     });
     expect(h.invoke).not.toHaveBeenCalledWith("start_update");
+  });
+
+  it("下载进行中不接受新检查（runCheck/silentCheck 的 downloadingRef 守卫）", async () => {
+    await mount();
+    await emit("update:available", available());
+    await act(async () => {
+      void state().downloadAndInstall();
+    });
+    expect(state().status).toBe("downloading");
+
+    h.invoke.mockClear();
+    await act(async () => {
+      void state().checkForUpdate();
+    });
+    // 守卫生效：invoke 一次都没发生。若没有守卫，后端复查发的 checking/available
+    // 会被监听器守卫吃掉，状态永远卡在 checking/下载读数错乱。
+    expect(h.invoke).not.toHaveBeenCalledWith("check_update");
+  });
+});
+
+describe("启动自检的存储降级", () => {
+  it("localStorage 读取抛错时降级为可见检查，自检链不中断", async () => {
+    // 隐私模式 / 存储被禁：getItem 抛错曾让 doStartupCheck reject，被 .then 链静默
+    // 吞掉——表现是"永远不检查更新"。现在降级为"当作超过 24 小时"。
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+    try {
+      await mount();
+      expect(state().status).toBe("checking");
+      expect(h.invoke).toHaveBeenCalledWith("check_update");
+    } finally {
+      getItemSpy.mockRestore();
+    }
   });
 });
 

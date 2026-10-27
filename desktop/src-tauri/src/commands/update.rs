@@ -86,19 +86,78 @@ where
     }
 }
 
+/// 更新错误的机器可读类别。
+///
+/// `is_retryable_check_error`（要不要重试）与 `classify_update_error`（给前端什么标签）
+/// 共用这一套归类——历史上两处各维护一份列表，注释里还得写"注意与本函数保持一致"，
+/// 漂移只是时间问题。改成单一真相源：这里加一类，两边同时生效。
+enum ErrorClass {
+    /// 源内容确定性坏：404/5xx、JSON 反序列化失败、版本号/日期解析失败、缺当前平台条目。
+    /// 再请求一次还是一样的坏 manifest，重试唯一的效果是让用户多等一轮退避。
+    Manifest,
+    /// 端点/协议配置错：URL 不合法、非 https、没有端点、平台不支持、请求头非法。
+    Config,
+    /// 验签失败：包可能被篡改或下载损坏，必须与「普通下载失败」区分开。
+    Signature,
+    /// 链路超时。
+    Timeout,
+    /// 链路抖动：连接重置、TLS 抖动、临时 5xx、代理认证失败。值得再试一次。
+    Network,
+    /// 包已经下到本地，卡在落盘 / 解开 / 启动安装器。
+    Install,
+    /// 插件新增的未分类变体：保守视为可重试、标签 unknown（前端回退字符串启发式）。
+    Unknown,
+}
+
+/// 把插件错误映射到 [`ErrorClass`]。插件 enum 是 `#[non_exhaustive]`，
+/// 通配分支保证升级插件版本时编译不破、行为保守。
+fn error_class(err: &tauri_plugin_updater::Error) -> ErrorClass {
+    use tauri_plugin_updater::Error as UpdaterError;
+    match err {
+        UpdaterError::ReleaseNotFound
+        | UpdaterError::TargetNotFound(_)
+        | UpdaterError::TargetsNotFound(_)
+        | UpdaterError::Serialization(_)
+        | UpdaterError::Semver(_)
+        | UpdaterError::FormatDate => ErrorClass::Manifest,
+        UpdaterError::EmptyEndpoints
+        | UpdaterError::UnsupportedOs
+        | UpdaterError::UnsupportedArch
+        | UpdaterError::UrlParse(_)
+        | UpdaterError::InsecureTransportProtocol
+        | UpdaterError::Http(_)
+        | UpdaterError::InvalidHeaderValue(_)
+        | UpdaterError::InvalidHeaderName(_) => ErrorClass::Config,
+        UpdaterError::Minisign(_) | UpdaterError::SignatureUtf8(_) | UpdaterError::Base64(_) => {
+            ErrorClass::Signature
+        }
+        UpdaterError::Reqwest(e) if e.is_timeout() => ErrorClass::Timeout,
+        UpdaterError::Reqwest(_) => ErrorClass::Network,
+        UpdaterError::Network(_) | UpdaterError::AuthenticationFailed => ErrorClass::Network,
+        UpdaterError::Io(_)
+        | UpdaterError::PackageInstallFailed
+        | UpdaterError::DebInstallFailed
+        | UpdaterError::TempDirNotOnSameMountPoint
+        | UpdaterError::TempDirNotFound
+        | UpdaterError::BinaryNotFoundInArchive
+        | UpdaterError::InvalidUpdaterFormat
+        | UpdaterError::FailedToDetermineExtractPath
+        | UpdaterError::Extract(_)
+        | UpdaterError::Tauri(_) => ErrorClass::Install,
+        _ => ErrorClass::Unknown,
+    }
+}
+
 /// 判断「检查更新」的错误是否值得重试。
 ///
-/// 这三类都是**确定性**结论 —— 源上压根没有可用 manifest（404 / 空响应），或者
-/// manifest 里没有当前平台的条目。再请求一次还是同样的结果，唯一效果是让用户
-/// 多等一轮退避。其余错误（连接超时、TLS 抖动、临时 5xx）保留重试。
+/// `Manifest` 与 `Config` 两类都是**确定性**结论 —— 源上压根没有可用 manifest
+/// （404 / 空响应 / JSON 坏 / 版本号或日期解析失败 / 缺当前平台条目），或端点配置本身
+/// 不合法。再请求一次还是同样的结果，唯一效果是让用户多等一轮退避
+/// （2026-10-22 实测：Gitee 源的 releases 分支失效后 404，旧逻辑每次检查白等
+/// 1s+2s 共 3.5 秒才回退到 ghproxy，用户感知就是"点更新要转半天"）。
+/// 其余错误（连接超时、TLS 抖动、临时 5xx）保留重试。
 fn is_retryable_check_error(err: &tauri_plugin_updater::Error) -> bool {
-    use tauri_plugin_updater::Error as UpdaterError;
-    !matches!(
-        err,
-        UpdaterError::ReleaseNotFound
-            | UpdaterError::TargetNotFound(_)
-            | UpdaterError::TargetsNotFound(_)
-    )
+    !matches!(error_class(err), ErrorClass::Manifest | ErrorClass::Config)
 }
 
 /// 给更新失败打一个**机器可读**的原因标签，随 `update:error` 一起发给前端。
@@ -110,40 +169,16 @@ fn is_retryable_check_error(err: &tauri_plugin_updater::Error) -> bool {
 /// （`error sending request`）反而落到兜底「更新失败，请重试」。
 ///
 /// 返回的标签由前端 `ERROR_TEXT` 表消费，**不要在日志或 UI 里直接展示**。
-/// 注意 `is_retryable_check_error` 里的 `manifest` 三类与本函数保持一致。
+/// 标签集合与 `error_class` 一一对应，新增类别只改 `error_class` 一处。
 fn classify_update_error(err: &tauri_plugin_updater::Error) -> &'static str {
-    use tauri_plugin_updater::Error as UpdaterError;
-    match err {
-        // 源上没有可用 manifest：404 / 5xx（插件把非 2xx 都归到这里）/ JSON 结构不符 / 缺当前平台条目。
-        UpdaterError::ReleaseNotFound
-        | UpdaterError::TargetNotFound(_)
-        | UpdaterError::TargetsNotFound(_) => "manifest",
-        // 验签失败：包可能被篡改或下载损坏，必须与「普通下载失败」区分开。
-        UpdaterError::Minisign(_) | UpdaterError::SignatureUtf8(_) | UpdaterError::Base64(_) => {
-            "signature"
-        }
-        UpdaterError::Reqwest(e) => {
-            if e.is_timeout() {
-                "timeout"
-            } else {
-                "network"
-            }
-        }
-        UpdaterError::Network(_) => "network",
-        // 更新源配置本身不合法（URL 协议错、没有端点、平台不支持），重试无意义。
-        UpdaterError::EmptyEndpoints
-        | UpdaterError::UnsupportedOs
-        | UpdaterError::UnsupportedArch => "config",
-        // 包已经下到本地，卡在落盘 / 解开 / 启动安装器。
-        UpdaterError::Io(_)
-        | UpdaterError::PackageInstallFailed
-        | UpdaterError::DebInstallFailed
-        | UpdaterError::TempDirNotOnSameMountPoint
-        | UpdaterError::TempDirNotFound
-        | UpdaterError::BinaryNotFoundInArchive
-        | UpdaterError::InvalidUpdaterFormat
-        | UpdaterError::FailedToDetermineExtractPath => "install",
-        _ => "unknown",
+    match error_class(err) {
+        ErrorClass::Manifest => "manifest",
+        ErrorClass::Config => "config",
+        ErrorClass::Signature => "signature",
+        ErrorClass::Timeout => "timeout",
+        ErrorClass::Network => "network",
+        ErrorClass::Install => "install",
+        ErrorClass::Unknown => "unknown",
     }
 }
 
@@ -209,10 +244,19 @@ fn candidate_endpoint_groups() -> Result<Vec<Option<Vec<url::Url>>>, String> {
 /// 构造 `Updater`：注入指定的端点（若有），否则用配置端点。
 /// 供 `check_update` / `start_update` 共用，确保更新源解析只有这一处实现（单一真相源）。
 /// 泛型 `R: Runtime`：让 mock 运行时的集成测试也能驱动作命令（见文件末尾测试）。
+///
+/// 超时设 180s：插件的 `timeout` 同时作用于 manifest 检查与安装包下载（`Update`
+/// 的 timeout 从 `Updater` 直传，无法只给一头设）。manifest 是几 KB 的小文件，
+/// 180 秒只为防"服务器收下连接再不响应"的永久挂死（reqwest 默认无总超时，
+/// 挂死时徽章会转到天荒地老）；安装包实测 ≤15MB，180s ≈ 83KB/s 的兜底网速，
+/// 更慢还有重试 2 次 + 换源兜底。常见场景不受影响：端点 404 走 ReleaseNotFound
+/// 秒回（不可重试），端点通畅也是秒回——只有"端点活着但不响应"的罕见死链
+/// 才会真的吃满 180s。
 fn build_updater<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     endpoints: Option<Vec<url::Url>>,
 ) -> Result<tauri_plugin_updater::Updater, String> {
+    use std::time::Duration;
     use tauri_plugin_updater::UpdaterExt;
     let app_handle = app.clone();
     let mut builder = app_handle.updater_builder();
@@ -222,6 +266,7 @@ fn build_updater<R: tauri::Runtime>(
             .map_err(|e| format!("更新源配置无效（需 https）: {e}"))?;
     }
     builder
+        .timeout(Duration::from_secs(180))
         .build()
         .map_err(|e| format!("更新插件初始化失败: {e}"))
 }
@@ -416,7 +461,8 @@ pub fn check_update<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
 
         let mut last_message: Option<String> = None;
         let mut last_code: &'static str = "unknown";
-        for endpoints in groups {
+        let total_groups = groups.len();
+        for (idx, endpoints) in groups.into_iter().enumerate() {
             let updater = match build_updater(&app, endpoints) {
                 Ok(u) => u,
                 Err(e) => {
@@ -446,8 +492,13 @@ pub fn check_update<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
                     return;
                 }
                 Ok(None) => {
-                    let _ = app.emit("update:uptodate", ());
-                    return;
+                    // None = 这个源明确报告没有更新。**不在这里 return**：
+                    // 多源场景下（如 Gitee 镜像同步延迟或路径指错），第一个源的
+                    // None 会把后续源上真正可用的更新静默吞掉——用户看到"已是最新"，
+                    // 日志里却毫无痕迹。改为记录并继续问后续源；全部问完仍无更新
+                    // 才在循环外发 uptodate。单源场景（默认）行为不变。
+                    log::info!("[Update] 候选源 {}/{} 报告已是最新", idx + 1, total_groups);
+                    continue;
                 }
                 Err(e) => {
                     last_code = classify_update_error(&e);
@@ -457,16 +508,22 @@ pub fn check_update<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
             }
         }
 
-        let _ = app.emit(
-            "update:error",
-            serde_json::json!({
-                "message": format!(
-                    "全部更新源均检查失败（已依次尝试）: {}",
-                    last_message.unwrap_or_else(|| "未知错误".into())
-                ),
-                "code": last_code
-            }),
-        );
+        // 全部候选问完：无任何错误 ⇒ 确实没有更新；有错误 ⇒ 如实报错
+        // （None 不是失败，不能拿 None 掩盖真的失败）。
+        match last_message {
+            None => {
+                let _ = app.emit("update:uptodate", ());
+            }
+            Some(msg) => {
+                let _ = app.emit(
+                    "update:error",
+                    serde_json::json!({
+                        "message": format!("全部更新源均检查失败（已依次尝试）: {msg}"),
+                        "code": last_code
+                    }),
+                );
+            }
+        }
     });
 }
 
@@ -490,16 +547,48 @@ mod tests {
         )));
     }
 
+    /// manifest 内容确定性坏（JSON 反序列化失败、版本号/日期解析失败）同样不该重试：
+    /// 换来的还是同一份坏 manifest。这类曾被误判为"其余错误保留重试"。
+    #[test]
+    fn deterministic_content_errors_are_not_retryable() {
+        assert!(!is_retryable_check_error(&UpdaterError::FormatDate));
+        assert!(!is_retryable_check_error(&UpdaterError::Serialization(
+            serde_json::from_str::<i32>("not json").unwrap_err()
+        )));
+        assert!(!is_retryable_check_error(&UpdaterError::Semver(
+            semver::Version::parse("not-a-version").unwrap_err()
+        )));
+    }
+
+    /// 端点配置错（URL 不合法、非 https、没有端点、平台不支持）也不该重试：
+    /// 配置不修，重试一万次还是同样的错。
+    #[test]
+    fn config_errors_are_not_retryable() {
+        assert!(!is_retryable_check_error(&UpdaterError::UrlParse(
+            url::ParseError::RelativeUrlWithoutBase
+        )));
+        assert!(!is_retryable_check_error(
+            &UpdaterError::InsecureTransportProtocol
+        ));
+        assert!(!is_retryable_check_error(&UpdaterError::EmptyEndpoints));
+        assert!(!is_retryable_check_error(&UpdaterError::UnsupportedOs));
+    }
+
     /// 链路抖动值得再试一次：换源前多试一轮是划算的。
     #[test]
     fn transient_errors_stay_retryable() {
         assert!(is_retryable_check_error(&UpdaterError::Network(
             "connection reset".into()
         )));
-        assert!(is_retryable_check_error(&UpdaterError::FormatDate));
+        assert!(is_retryable_check_error(
+            &UpdaterError::AuthenticationFailed
+        ));
+        assert!(is_retryable_check_error(&UpdaterError::Io(
+            std::io::Error::new(std::io::ErrorKind::ConnectionReset, "reset")
+        )));
     }
 
-    /// 源上没有 manifest（404/5xx/缺当前平台条目）必须与「网络故障」区分开：
+    /// 源上没有 manifest（404/5xx/缺当前平台条目/内容确定性坏）必须与「网络故障」区分开：
     /// 前者该告诉用户「服务暂时不可用」，后者才是「检查网络」。
     /// 前端按这个标签出文案，所以标签本身不能漂。
     #[test]
@@ -510,6 +599,14 @@ mod tests {
         );
         assert_eq!(
             classify_update_error(&UpdaterError::TargetNotFound("windows-x86_64".into())),
+            "manifest"
+        );
+        // manifest 内容坏（JSON/版本号/日期）同样归 manifest：源的问题，不是用户的网络问题。
+        assert_eq!(classify_update_error(&UpdaterError::FormatDate), "manifest");
+        assert_eq!(
+            classify_update_error(&UpdaterError::Semver(
+                semver::Version::parse("not-a-version").unwrap_err()
+            )),
             "manifest"
         );
         assert_eq!(
@@ -524,8 +621,21 @@ mod tests {
             classify_update_error(&UpdaterError::UnsupportedOs),
             "config"
         );
-        // 未知错误走 unknown，前端回退到字符串启发式（不会把原因说死）。
-        assert_eq!(classify_update_error(&UpdaterError::FormatDate), "unknown");
+        // 端点 URL 不合法归 config：修配置，不是重试。
+        assert_eq!(
+            classify_update_error(&UpdaterError::UrlParse(
+                url::ParseError::RelativeUrlWithoutBase
+            )),
+            "config"
+        );
+        // 落盘/安装失败与下载失败分开：前者多半是磁盘权限或磁盘空间。
+        assert_eq!(
+            classify_update_error(&UpdaterError::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "denied"
+            ))),
+            "install"
+        );
     }
 
     /// 不可重试错误必须**只调用一次**（改动前是 3 次，本测试即失败）。

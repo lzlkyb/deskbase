@@ -859,6 +859,7 @@ dependencies = [
  "env_logger",
  "log",
  "png 0.17.16",
+ "semver",
  "serde",
  "serde_json",
  "tauri",

@@ -55,6 +55,9 @@ windows = { version = "0.56", features = [
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
+# 仅为测试构造 UpdaterError::Semver 变体（插件错误的确定性分类断言）。
+# updater 插件已传递依赖 semver 1.x，这里不增加实际编译量。
+semver = "1"
 
 [profile.release]
 # codegen-units 用默认 16 而不是 1：跨单元优化已由 lto = "thin" 提供，

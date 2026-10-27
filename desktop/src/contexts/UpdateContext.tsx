@@ -4,6 +4,7 @@ import { invoke } from "../lib/tauri";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { UpdateNotesDialog } from "../components/update/UpdateNotesDialog";
 import { RestartOverlay } from "../components/update/RestartOverlay";
+import { APP_SLUG } from "../lib/about";
 
 // ─── 类型定义 ────────────────────────────
 
@@ -157,9 +158,12 @@ export function useUpdate() {
 
 /** 自动检查间隔：24 小时 */
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const LAST_CHECK_KEY = "shell_last_update_check";
+// 存储键带 APP_SLUG 前缀（与 windowState/appearance 同一套机制）：多个 Tauri 应用
+// 可能共用同一个 webview origin，不带前缀会互相串台——A 应用记了"24 小时内查过"，
+// B 应用的启动自检就被悄悄吞掉。改名天然跟随，无需在此维护。
+const LAST_CHECK_KEY = `${APP_SLUG}.last_update_check`;
 /** 「稍后」抑制记忆：记录的版本号（本版本不再弹框，换版本自动解除） */
-const DISMISSED_KEY = "shell_dismissed_update_version";
+const DISMISSED_KEY = `${APP_SLUG}.dismissed_update_version`;
 /** 重启过渡层停留时长：这段刻意的等待本身就是「正在应用更新」的载体（方案 C） */
 const RESTART_OVERLAY_MS = 1100;
 /**
@@ -221,7 +225,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   // 统一走后端 check_update 命令，状态由事件驱动（update:available / update:uptodate）。
 
   const silentCheck = useCallback(async () => {
-    if (checkingRef.current) return;
+    // 与 runCheck 同样挡 downloading：下载进行中并发检查，后端的 update:checking /
+    // update:available 复查事件会被监听器的 downloadingRef 守卫吃掉，没有任何事件
+    // 能把状态救回来（runCheck 处的同款注释）。静默检查只是"顺手问问"，不值得冒险。
+    if (checkingRef.current || downloadingRef.current) return;
     checkingRef.current = true;
     userInitiatedRef.current = false; // 这一轮失败不弹 toast
     try {
@@ -288,6 +295,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       checkForUpdate();
     }, CHECK_INTERVAL_MS);
 
+    // cleanup 同时管两个定时器：24h 检查的 interval 在本 effect 里设，
+    // 「已是最新」4 秒回 idle 的 timeout 在下方监听 effect 里设（存进 uptodateTimerRef）。
+    // React 卸载时按声明**逆序**跑 cleanup——监听 effect 后声明先清，两个都归这里收尾，
+    // 顺序无关紧要，缺任何一个都会在卸载后留下一次 setStatus（ React 会静默忽略，
+    // 但 fake-timer 环境下会炸出 "not wrapped in act"）。
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (uptodateTimerRef.current) clearTimeout(uptodateTimerRef.current);
@@ -403,6 +415,10 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       );
       track(
         await listen("update:uptodate", () => {
+          // 与 checking / available 同款守卫：下载进行中不回退状态。后端 check_update
+          // 与 start_update 是两条独立命令（各自的单飞闸），前端调用侧虽已挡过一轮，
+          // 这里作为双保险——状态被打回 uptodate 会让进度读数与徽章全部错乱。
+          if (downloadingRef.current) return;
           // 进入「已是最新」可见状态（版本号 pill 显示）；4 秒后自动回到 idle。
           // 仅手动检查才弹「已是最新」提示框（manualCheck），自动检查（启动/定时）不弹框。
           setStatus("uptodate");
@@ -432,7 +448,16 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     // 仅交换两个 effect 的顺序不够：两边的 async 部分都在微任务队列里排队，
     // IPC 完成先后仍不保证。只有把它放在 `await` 完所有 listen 之后才真正无竞态。
     const doStartupCheck = async () => {
-      const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+      // 读不到上次检查时间（隐私模式/存储被禁/配额满）不能中断启动自检链：
+      // getItem 抛错会让这个 async 函数 reject，而调用方是 setupListeners().then(...)，
+      // 异常被 then 链静默吞掉——表现是"永远不检查更新"。降级为"当作超过 24 小时"，
+      // 最坏多查一次，好过永远不查。
+      let lastCheck: string | null = null;
+      try {
+        lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+      } catch {
+        lastCheck = null;
+      }
       const now = Date.now();
       if (lastCheck && now - Number(lastCheck) < CHECK_INTERVAL_MS) {
         await silentCheck();
