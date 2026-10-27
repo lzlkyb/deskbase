@@ -67,7 +67,7 @@ desktop-app-shell/
 ├── design/                    # HTML 设计稿（改 UI 前先出稿）
 ├── tools/fingerprint.py       # 装机环境指纹（排"我这能跑你那不能"用）
 ├── .github/workflows/build.yml    # CI：前端门禁 + Rust 测试 + tag 双平台发版
-├── .githooks/pre-push          # 7 项本地门禁（装仓库后需 cp 到 .git/hooks/）
+├── .githooks/pre-push          # 7 项本地门禁（启用：git config core.hooksPath .githooks）
 └── desktop/
     ├── src/
     │   ├── index.css                # 设计 token 体系（改 UI 先读它）

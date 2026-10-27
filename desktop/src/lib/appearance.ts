@@ -1,7 +1,9 @@
+import { APP_SLUG } from "./about";
+
 /** 界面材质独立于明暗与终端配色；只切根节点属性，保留页面和会话节点。 */
 export type Appearance = "classic" | "glass";
 
-const KEY = "cc-bridge.ui-style";
+const KEY = `${APP_SLUG}.ui-style`;
 const EVENT = "appearancechange";
 
 export function getStoredAppearance(): Appearance {

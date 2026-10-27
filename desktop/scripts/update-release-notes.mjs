@@ -1,4 +1,11 @@
-const HISTORY_MARKER = "app-release-history:";
+/**
+ * 发布说明尾部内嵌机器可读历史的标记。
+ * 契约：必须与前端 src/lib/updateNotes.ts 的 HISTORY 正则一致（那边读取时兼容
+ * cc-bridge- 历史前缀）。曾经两侧各写各的导致远端历史静默失效、元数据泄漏进
+ * 更新弹窗——src/lib/updateNotes.test.ts 有跨侧回归测试锁死这个契约。
+ * 故意用应用无关的通用串：应用改名不会拆断协议。
+ */
+export const HISTORY_MARKER = "app-release-history:";
 
 /** Keep the legacy notes readable; one-line metadata also stays invisible to older clients. */
 export function buildUpdateNotes(notes, version, changelog) {

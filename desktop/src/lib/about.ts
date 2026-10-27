@@ -21,6 +21,15 @@ export const APP_INFO = {
 
 export type ChangeCategory = "feat" | "improve" | "fix" | "sec";
 
+/**
+ * 存储键/localStorage 前缀用的应用短名，由显示名推导（改名自动跟随）。
+ * 多个 Tauri 应用可能共用同一 webview origin，key 不带应用前缀会串台。
+ */
+export const APP_SLUG = APP_INFO.name
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+
 export const CATEGORY_LABELS: Record<ChangeCategory, string> = {
   feat: "新增",
   improve: "改进",

@@ -19,7 +19,12 @@ export interface UpdateRelease extends ReleaseContent {
   date?: string | null;
 }
 
-const HISTORY = /<!-- cc-bridge-release-history:([\s\S]*?) -->/;
+// 协议契约：必须与 scripts/update-release-notes.mjs 的 HISTORY_MARKER 一致。
+// 标记是「发布说明尾部内嵌机器可读历史」的约定，故意用应用无关的通用串——
+// 应用改名/复制都不会拆断协议（cc-bridge- 前缀是历史遗留，读取时兼容）。
+// 曾经两侧各写各的（前端 cc-bridge- / 后端无前缀）导致远端历史静默失效、
+// 元数据 JSON 作为段落泄漏进更新弹窗，回归测试锁死在 updateNotes.test.ts。
+const HISTORY = /<!-- (?:cc-bridge-release|app-release)-history:([\s\S]*?) -->/;
 const LABELS: Record<string, string> = { 新增: "新增", 变更: "改进", 优化: "改进", 技术: "改进", 依赖: "改进", 测试: "改进", 说明: "改进", 修复: "修复", 安全: "安全" };
 const PRIVATE = new Set(["用户摘要", "技术细节", "实现说明", "开发者"]);
 

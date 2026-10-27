@@ -9,7 +9,7 @@
 本仓库**不是应用，是壳子**。任何具体应用都从这里复制一份再改：
 
 ```bash
-# 复制壳子 → 一键改名（11 处产品标识一次改齐）→ 换图标 → 生成签名密钥 → 开发
+# 复制壳子 → 一键改名（十余处产品标识一次改齐）→ 换图标 → 生成签名密钥 → 开发
 cp -r desktop-app-shell my-app && cd my-app/desktop
 node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"
 ```
@@ -173,7 +173,7 @@ cd desktop && npm run release -- --patch      # 或 --minor / --major / version 
 
 > ⚠️ **pre-push 钩子会自己跑全部门禁，push 前不要手动起独立 `cargo test`**。当前 **7 项**，顺序按"失败越快越靠前"排：组件体量 → `cargo fmt --check` → `eslint` → `tsc --noEmit` → `vitest` → `cargo clippy` → `cargo test`。**清单以 `.githooks/pre-push` 的实际输出为准，本节不维护它。**
 >
-> 🔴 改完 `.githooks/pre-push` 必须 `cp .githooks/pre-push .git/hooks/pre-push`。`.git/` 不进仓库，没有任何机制保证两者一致。
+> 🔴 改完 `.githooks/pre-push` 必须重新启用。推荐 `git config core.hooksPath .githooks`（免复制、自动同步，本仓库入库即带可执行位）；若用传统 `cp` 方式，记得 `chmod +x`——没有可执行位的钩子会被 git 静默跳过，一项门禁都不跑。
 
 ### Commit 前缀规范
 

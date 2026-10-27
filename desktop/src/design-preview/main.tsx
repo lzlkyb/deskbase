@@ -9,7 +9,7 @@ import "./preview.css";
 
 const steps: { key: string; icon: IconName; label: string; cmd: string; note: string }[] = [
   { key: "copy", icon: "copy", label: "复制", cmd: "cp -r desktop-app-shell my-app && cd my-app/desktop", note: "整目录拷贝，git 历史可选保留。" },
-  { key: "rename", icon: "terminal", label: "改名", cmd: 'node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"', note: "11 处产品标识一次改齐：包名/exe 名、tauri.conf、branding.rs、CI 产物名。" },
+  { key: "rename", icon: "terminal", label: "改名", cmd: 'node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"', note: "十余处产品标识一次改齐：包名/exe 名、Rust crate 名、tauri.conf、branding.rs、CI 产物名。" },
   { key: "icon", icon: "plug", label: "换图标", cmd: "npx tauri icon your-logo.png", note: "从一张图生成 icons/ 全套（ico/icns/png），现在还是占位图。" },
   { key: "key", icon: "key", label: "签名密钥", cmd: "npx tauri signer generate -w ~/.tauri/my-tool.key", note: "公钥进 tauri.conf.json 的 updater.pubkey，私钥进 GitHub secret。复制壳子的密钥发不了版。" },
   { key: "run", icon: "play", label: "运行", cmd: "npm install && npm run tauri dev", note: "10 分钟内得到能跑、能自动更新、UI 成体系的 Hello World。" },
@@ -78,7 +78,7 @@ function App() {
           <div className="bottom-grid"><section className="panel safety-panel"><div className="section-heading"><div className="section-title"><Icon name="shield" size={17}/><h2>工程纪律</h2></div><span className="badge good">机器强制执行</span></div><div className="health-summary"><strong>{!running || empty ? "—" : "7"}<small>{!running || empty ? "" : " 项"}</small></strong><span>本地门禁<small>{empty ? "等待首次运行" : "体量 · fmt · eslint · tsc · vitest · clippy · test"}</small></span></div><div className="protection-grid">{["路径白名单校验", "更新验签（.sig）", "单实例锁", "关窗销毁 webview"].map(s=><span key={s}><Icon name="check" size={13}/>{s}</span>)}</div></section><section className="panel usage-panel"><div className="section-heading"><div className="section-title"><Icon name="refresh" size={17}/><h2>发版链路</h2></div><span>npm run release</span></div><div className="usage-content"><div className="usage-number"><strong>{empty ? "0" : "5"}</strong><span>步 · tag 后全自动</span><p>{empty ? "暂无发版记录" : "版本真源 Cargo.toml，updater.json 跨平台合并防互覆"}</p></div><div className="bars" aria-label="发版各步骤耗时示例（分钟）">{releaseSteps.map(([name,mins],i)=><div className="bar-column" key={name}><div className={i === releaseSteps.length-1 ? "bar today" : "bar"} style={{height: empty ? 2 : Math.round(mins/12*100)}} title={`${name}：约 ${mins} 分钟（示例）`}/><span>{name}</span></div>)}</div></div></section></div>
           <section className="panel activity-panel"><div className="section-heading"><div className="section-title"><Icon name="log" size={17}/><h2>最近动态</h2></div><span>壳子仓库</span></div>{empty ? <p className="empty-activity">尚无动态。复制壳子、跑一次改名，这里就会出现你的第一条记录。</p> : <div className="activity-list">{[
             ["抽离三层架构", "docs / 桌面应用壳子抽离方案", "refactor", "1 轮", "23:06"],
-            ["一键改名脚本", "desktop / scripts / rename-app.mjs", "feat", "11 处", "23:34"],
+            ["一键改名脚本", "desktop / scripts / rename-app.mjs", "feat", "十余处", "23:34"],
             ["示例页接线", "desktop / src / components / tabs", "feat", "2 页", "23:40"],
           ].map(([label,path,tool,latency,time])=><div className="activity-row" key={time}><span className="activity-check"><Icon name="check" size={13}/></span><span className="activity-name">{label}<small>{path}</small></span><code>{tool}</code><span>{latency}</span><time>{time}</time></div>)}</div>}</section>
           <footer className="page-footer">MyApp<span>复制即用 · 自动更新 · 设计体系</span></footer>

@@ -95,7 +95,7 @@ pub fn resolve_safe_path_cached(
     if !is_allowed {
         // 报错时附上白名单，远程 Claude Code 一次撞墙即可得知可访问范围，无需盲猜。
         let roots_hint = if allowed_roots.is_empty() {
-            "(whitelist is empty — no directories are accessible; add roots in the cc-bridge panel)"
+            "(whitelist is empty — no directories are accessible; add roots in the app settings)"
                 .to_string()
         } else {
             allowed_roots
@@ -118,7 +118,7 @@ pub fn resolve_safe_path_cached(
             if let Ok(rel) = resolved.strip_prefix(root) {
                 if is_excluded(&rel.to_string_lossy(), exclude_patterns) {
                     return Err(format!(
-                        "Access denied: {} matches an exclude pattern ({}). Remove the pattern in the cc-bridge panel to allow access.",
+                        "Access denied: {} matches an exclude pattern ({}). Remove the pattern in the app settings to allow access.",
                         display_path(&resolved),
                         exclude_patterns.join(", ")
                     ));
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_path_traversal_blocked() {
-        let temp = std::env::temp_dir().join("cc-bridge-test-path");
+        let temp = std::env::temp_dir().join("shell-test-path");
         let _ = fs::create_dir_all(&temp);
         let root = temp.to_string_lossy().to_string();
 
@@ -262,7 +262,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn junction_cannot_escape_allowed_root() {
-        let base = std::env::temp_dir().join(format!("cc-bridge-junc-{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("shell-junc-{}", std::process::id()));
         let root = base.join("root");
         let outside = base.join("outside");
         let _ = fs::remove_dir_all(&base);
@@ -340,10 +340,7 @@ mod tests {
     fn test_whitelist_disabled_allows_outside() {
         // 关闭白名单后，允许解析白名单之外的已存在路径（鉴权由 HTTP 层负责）。
         let temp = std::env::temp_dir();
-        let root = temp
-            .join("cc-bridge-test-unused")
-            .to_string_lossy()
-            .to_string();
+        let root = temp.join("shell-test-unused").to_string_lossy().to_string();
         let result = resolve_safe_path(&temp.to_string_lossy(), &[root], &[], false);
         assert!(result.is_ok());
     }
@@ -401,7 +398,7 @@ mod tests {
 
     #[test]
     fn exclude_blocks_matching_path_inside_root() {
-        let temp = std::env::temp_dir().join("cc-bridge-test-exclude");
+        let temp = std::env::temp_dir().join("shell-test-exclude");
         let _ = fs::create_dir_all(temp.join("secrets"));
         let root = temp.to_string_lossy().to_string();
 
@@ -439,9 +436,9 @@ mod tests {
     #[test]
     fn exclude_never_widens_outside_root() {
         // 根外路径维持白名单拒绝，排除规则既不救它也不改报错语义。
-        let temp = std::env::temp_dir().join("cc-bridge-test-exclude-out");
+        let temp = std::env::temp_dir().join("shell-test-exclude-out");
         let _ = fs::create_dir_all(&temp);
-        let unrelated = std::env::temp_dir().join("cc-bridge-test-exclude-unrel");
+        let unrelated = std::env::temp_dir().join("shell-test-exclude-unrel");
         let _ = fs::create_dir_all(unrelated.join("secrets"));
         let r = resolve_safe_path(
             &unrelated.join("secrets").join("k.txt").to_string_lossy(),

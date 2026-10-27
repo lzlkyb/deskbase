@@ -12,7 +12,9 @@
  * - localStorage 读出的值一律过 parseSavedSize 校验，防污染恢复出离谱尺寸。
  */
 
-export const WINDOW_SIZE_KEY = "cc-bridge.window.size.v1";
+import { APP_SLUG } from "./about";
+
+export const WINDOW_SIZE_KEY = `${APP_SLUG}.window.size.v1`;
 
 /** 与 tauri.conf.json 的 minWidth/minHeight 保持一致，改那边必须同步这里 */
 export const MIN_WIDTH = 560;

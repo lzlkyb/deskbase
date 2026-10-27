@@ -1,5 +1,6 @@
 import { Modal } from "../ui/Modal";
 import { UpdateDialogContent } from "./UpdateDialogContent";
+import { APP_INFO } from "../../lib/about";
 import type { UpdateNotesInfo } from "../../lib/updateNotes";
 
 /** 将文本中的 **...** 转换为 <strong> 标签，其余保持纯文本。 */
@@ -168,7 +169,7 @@ export function UpdateNotesDialog({ open, update, onClose, onDownload, onDismiss
   onDismiss: () => void;
 }) {
   if (!update) return null;
-  return <Modal open={open} onClose={onClose} zIndex={1000} ariaLabel="CC Bridge 软件更新" className="modal-surface update-dialog">
+  return <Modal open={open} onClose={onClose} zIndex={1000} ariaLabel={`${APP_INFO.name} 软件更新`} className="modal-surface update-dialog">
     <UpdateDialogContent key={`${update.currentVersion ?? ""}/${update.version ?? ""}`} update={update} onClose={onClose} onDownload={onDownload} onDismiss={onDismiss} />
   </Modal>;
 }
