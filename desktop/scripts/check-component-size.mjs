@@ -36,45 +36,15 @@ const MAX_HOOKS = 8;
 /**
  * 存量超标登记（棘轮基线）。键 = 仓库相对路径（POSIX 分隔符）。
  * `lines` / `hooks` 是**当前允许的上限**，不是目标值。目标永远是上面两个常量。
+ *
+ * 2026-10-27：整表清空。此前登记的 7 项（VersionHistoryModal / AboutGroup /
+ * useSshTerminalSession / PerfCharts / useSshTransfer / CommandPalette /
+ * BackupCleanupDialog）全部来自 cc-bridge 业务代码——壳子抽离时这些文件
+ * 没有跟过来，登记项全部指向**不存在的路径**，留着只会误导后来者
+ * "这些文件超标但被豁免了"。当前壳子全部文件都在默认上限内（门禁实跑通过）。
+ * 将来壳子自己的文件真超标了，再按棘轮登记。
  */
-const BASELINE = {
-  // ── 行数超标 ──
-  "src/components/backup/VersionHistoryModal.tsx": { lines: 575, hooks: 11 },
-  // 2026-10-13：`ConnectTab.tsx` 已从本表**移除**。它原本登记 470 行 / 13 hooks，
-  // 本次（连接页评审修复 ⑤）把向导状态整体下沉 `hooks/useConnectGuideState.ts`、
-  // ConnectGuide 独立成 `connect/ConnectGuide.tsx` 后降到 168 行 / 2 hooks，
-  // 重新落在 300 行 / 8 hooks 的默认上限之内——不需要豁免了。
-  // 2026-09-16：475 → 411（内联的「关于」弹窗 → AboutInfoModal.tsx）。
-  "src/components/tabs/AboutGroup.tsx": { lines: 332 },
-  // 🔴 514 行，而且是 2026-09-02 本次重构**新建**的。当时把 621 行的
-  // `SshTerminal.tsx` 拆成 115 行 + 这个 hook，并声称“符合规则 7”——
-  // 那只是因为当时的规则只管 `.tsx`。这正是本脚本要堵的“搬家”。
-  // 2026-09-03：513 → 443（快捷键钩子→terminalKeymap.ts，粘贴→useTerminalPaste.ts）。
-  // 2026-09-04：443 → 425（尺寸适配→hooks/useTerminalFit.ts；终端预设功能在同文件内净减）。
-  // 2026-09-16：425 → 423（清理终端交互摩擦时净减）。
-  // 2026-10-16：423 → 421（选择手势改走 terminalInputHold 输入闸，session hook 里的
-  // 每帧重关鼠标报告的接线与其依赖一并下线）。
-  // 2026-10-21：421 → 404（可见尺寸适配与选中窗格聚焦分离，避免还原分屏抢焦点）。
-  "src/components/tabs/useSshTerminalSession.ts": { lines: 404 },
-  "src/components/tabs/PerfCharts.tsx": { lines: 401 },
-  // 2026-09-16：`LogDetailPanel.tsx` 已从本表**移除**。它原本登记 361 行，本次把
-  // 内联的 DiffModal / RestoreConfirmDialog 抽成 `LogDiffModal.tsx` / `LogRestoreDialog.tsx`
-  // 后降到 180 行、1 个 hook，重新落在 300 行 / 8 状态的默认上限之内——不需要豁免了。
-  // 2026-09-16：325 → 303（类型契约→lib/transferTypes.ts；覆盖提问编排→useTransferPrompt.ts）。
-  "src/components/tabs/useSshTransfer.ts": { lines: 303 },
-  // 2026-10-20：343 → 336（搜索过滤的 IIFE + 三行 filter 收成两行，语义不变）。
-  // 上一版基线 342 在提交 d4bb165 时就被突破到 343 却没人跑门禁 —— 棘轮只在被跑到时才转。
-  // 2026-10-25：336 → 314（列表渲染拆到 CommandPaletteList.tsx：拼音/模糊/frecency 升级
-  // 要加渲染逻辑，先拆再装，别把基线当配额用）。
-  "src/components/modals/CommandPalette.tsx": { lines: 314, hooks: 9 },
-  // 2026-10-13：`FileControlCard.tsx` 已从本表**移除**。它原本登记 301 行（贴线），
-  // 本次把备份/限流/后台命令三节改成 SumRow 摘要行（渐进披露）、展开区拆到
-  // `tabs/filecontrol/`（BackupSection 210 行 / LimitSections 83 行）后降到 117 行，
-  // 重新落在默认上限之内——不需要豁免了。
-  // ── 行数合格、但状态数超标 ──
-  // 状态数同样采用棘轮；SshFileBrowser 的目录请求已独立，现已回到默认上限内。
-  "src/components/backup/BackupCleanupDialog.tsx": { hooks: 13 },
-};
+const BASELINE = {};
 
 function walk(dir, out = []) {
   let items;

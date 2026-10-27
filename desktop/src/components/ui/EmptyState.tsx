@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Icon } from "./icon";
+import { Icon, type IconName } from "./icon";
 
 /** 统一空状态组件：背景大号半透明图标 + 前景小图标 + 引导文案 + 可选操作按钮。
  *  用于审计无记录 / 白名单为空 / 筛选无结果 / 无运行历史等场景，替代散落的纯文本占位。
@@ -18,7 +18,7 @@ export function EmptyState({
   iconSize = 26,
   className = "",
 }: {
-  icon: string;
+  icon: IconName;
   description: string;
   action?: ReactNode;
   bigIconSize?: number;

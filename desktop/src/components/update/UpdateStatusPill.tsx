@@ -45,8 +45,12 @@ export function UpdateStatusPill({
     );
   }
   if (status === "available") {
+    // 可点击胶囊必须是真 <button>：span+onClick 键盘不可达（Tab 跳过、Enter/Space 无响应），
+    // 读屏也不会播报"可交互"。胶囊内没有嵌套按钮，直接整颗做成 button（无需 notice.tsx
+    // ActionCard 那种覆盖层方案）。type="button" 防止被外层 form 误当提交钮。
     return (
-      <span
+      <button
+        type="button"
         className="flex cursor-pointer items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-[3px] text-xs font-semibold text-warning-ink transition-colors hover:bg-warning/20"
         title="查看本次更新内容"
         onClick={(e) => {
@@ -55,7 +59,7 @@ export function UpdateStatusPill({
         }}
       >
         有新版本 v{update?.version}
-      </span>
+      </button>
     );
   }
   if (status === "downloading") {

@@ -19,7 +19,7 @@
  *   src-tauri/Cargo.toml        name（同时决定 exe 名 → CI 的 exe 路径随之改）
  *   src-tauri/tauri.conf.json   productName / identifier / 窗口 title / updater endpoints（给了 --repo 时）
  *   package.json(+ -lock.json)  name
- *   src-tauri/src/branding.rs   APP_DISPLAY_NAME 与三条托盘 tooltip
+ *   src-tauri/src/branding.rs   APP_DISPLAY_NAME（托盘 tooltip 经 format! 运行时绑定）
  *   src-tauri/src 与 tests 下所有 .rs   crate 名 desktop_app_shell → 下划线形式（不改编译不过）
  *   src/lib/about.ts            APP_INFO.name / author / repoUrl / description
  *   index.html / motion-preview.html / scripts/build-design-preview.mjs   标题里的显示名
@@ -242,7 +242,8 @@ applyReplacements("desktop/package-lock.json", [
   [`"${OLD_SLUG}"`, `"${slug}"`],
 ], { optional: true });
 
-// 4. branding.rs：显示名 + 三条托盘 tooltip 里嵌的显示名。
+// 4. branding.rs：显示名（三条托盘 tooltip 经 format! 运行时绑定 APP_DISPLAY_NAME，
+// 无需逐条替换——2026-10-27 从手抄文案改成 format! 拼接后这里只剩一个替换点）。
 applyReplacements("desktop/src-tauri/src/branding.rs", [
   [OLD_DISPLAY, display],
 ]);

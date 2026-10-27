@@ -72,15 +72,26 @@ where
                     return Err(e);
                 }
                 let delay_secs = 1u64 << (attempt - 1);
+                // +0–511ms 抖动：无抖动时，一次服务端抖动恢复会让所有客户端在
+                // 同一刻齐刷刷回源（惊群），刚缓过来的源又被自己打回去。抖动量
+                // 取系统时钟纳秒取模而非 rand crate——更新链路不引新依赖
+                // （二进制体积是核心卖点），且这里要的只是"错开"，不是密码学随机。
+                let jitter_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |d| (d.subsec_nanos() % 512) as u64);
                 log::warn!(
-                    "[Update] {} 失败（第 {}/{} 次），{} 秒后重试: {}",
+                    "[Update] {} 失败（第 {}/{} 次），{}s+{}ms 后重试: {}",
                     operation_name,
                     attempt,
                     max_retries,
                     delay_secs,
+                    jitter_ms,
                     e
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    delay_secs * 1000 + jitter_ms,
+                ))
+                .await;
             }
         }
     }

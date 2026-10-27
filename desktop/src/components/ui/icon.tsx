@@ -3,8 +3,13 @@ import type { SVGProps } from "react";
 /**
  * 内联 SVG 图标集（lucide 风格），取自已批准的设计稿。
  * WHY 不用 lucide-react：设计稿已用内联 SVG 达标，避免新增依赖撑大二进制（3.4MB 是核心卖点）。
+ *
+ * 故意不写 `Record<string, string>` 注解：那会把键宽化成 `string`，`IconName`
+ * 退化成"任意字符串"，写错图标名要等到运行时才暴露（paths[name] 为 undefined，
+ * SVG 静默不渲染）。去掉注解让 TS 推断字面量键，`IconName` 就是联合类型，
+ * 拼错名字编译期即报错。
  */
-const paths: Record<string, string> = {
+const paths = {
   plug: "M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1",
   shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   settings:

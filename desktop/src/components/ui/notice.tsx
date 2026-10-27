@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Icon } from "./icon";
+import { Icon, type IconName } from "./icon";
 
 /**
  * 统一通知组件族（三级分级模型的 L2 / L3，见 design/统一通知系统设计稿.html）：
@@ -17,7 +17,7 @@ import { Icon } from "./icon";
 export type NoticeVariant = "info" | "warning" | "error" | "success";
 type Tone = "warning" | "destructive" | "info";
 
-const noticeStyles: Record<NoticeVariant, { box: string; icon: string; iconName: string }> = {
+const noticeStyles: Record<NoticeVariant, { box: string; icon: string; iconName: IconName }> = {
   info: {
     box: "border-primary/25 bg-accent text-accent-foreground",
     icon: "text-primary",
@@ -48,7 +48,7 @@ export function InlineNotice({
   children,
 }: {
   variant?: NoticeVariant;
-  icon?: string;
+  icon?: IconName;
   className?: string;
   children: ReactNode;
 }) {
@@ -58,7 +58,7 @@ export function InlineNotice({
       role={variant === "error" ? "alert" : undefined}
       className={`flex items-start gap-2.5 rounded-[calc(var(--radius)+2px)] border p-3 text-[12.5px] leading-relaxed ${s.box} ${className}`}
     >
-      <Icon name={(icon ?? s.iconName) as any} size={16} className={`mt-0.5 shrink-0 ${s.icon}`} />
+      <Icon name={icon ?? s.iconName} size={16} className={`mt-0.5 shrink-0 ${s.icon}`} />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -135,7 +135,7 @@ export function ActionCard({
   children,
 }: {
   tone?: Tone;
-  icon?: string;
+  icon?: IconName;
   title: ReactNode;
   pill?: string;
   summary?: ReactNode;
@@ -225,7 +225,7 @@ export function ActionCard({
               !resolved ? "notice-pulse" : ""
             }`}
           >
-            <Icon name={icon as any} size={15} />
+            <Icon name={icon} size={15} />
           </span>
           <span className="min-w-0 flex-1">
             <span className={`flex items-center gap-2 text-[13px] font-semibold ${ts.title}`}>

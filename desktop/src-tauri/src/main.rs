@@ -227,7 +227,10 @@ fn refresh_tray(
     tip: &str,
     last: &std::sync::Arc<std::sync::Mutex<(bool, String)>>,
 ) {
-    let mut g = last.lock().unwrap();
+    // 中毒恢复而非 unwrap：持锁线程 panic 过就让托盘状态刷新整个线程跟着 panic，
+    // 换来的是图标/tooltip 永久停更——用户看到的是"假死"。PoisonError 只标记
+    // "有人中途放手"，数据本身仍一致可用（临界区是一次性的比较+赋值）。
+    let mut g = last.lock().unwrap_or_else(|e| e.into_inner());
     if g.0 == running && g.1 == tip {
         return; // 无变化，跳过重设（防高频重绘闪烁）
     }
@@ -310,8 +313,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     builder
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let handle = app.handle().clone();
             let config_dir = handle
@@ -326,9 +327,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             app.manage(app_state.clone());
 
             // 注入 AppHandle 供需要发桌面通知的代码用（feature 关闭时不注入）。
+            // 中毒恢复而非 unwrap：同 refresh_tray 的理由——一次 panic 不该让后续
+            // 每个 setup 路径都连锁 panic。
             #[cfg(feature = "notifications")]
             {
-                *app_state.app_handle.lock().unwrap() = Some(app.handle().clone());
+                *app_state
+                    .app_handle
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = Some(app.handle().clone());
             }
 
             // Updater 插件容错注册：pubkey 与签名私钥配对（见 tauri.conf.json）。
@@ -445,7 +451,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             // refresh_and_report_ip_change），本壳子无业务状态，
                             // 只保留去重刷新的调用范式。
                             if let Some(tray) = bg.tray_by_id("main-tray") {
-                                refresh_tray(&tray, true, branding::TRAY_TIP_RUNNING, &last);
+                                refresh_tray(&tray, true, &branding::tray_tip_running(), &last);
                             }
                         }
                     })

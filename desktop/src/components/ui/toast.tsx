@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, createContext, useContext, type ReactNode } from "react";
-import { Icon } from "./icon";
+import { Icon, type IconName } from "./icon";
 import { usePresence } from "../../hooks/usePresence";
 import { useAutoAnimateRM } from "../../hooks/useAutoAnimateRM";
 import { useAppHidden } from "../../lib/appVisibility";
@@ -54,7 +54,7 @@ const variantStyles: Record<ToastVariant, string> = {
   info: "border-primary/30 bg-primary/10 text-primary",
 };
 
-const variantIcons: Record<ToastVariant, string> = {
+const variantIcons: Record<ToastVariant, IconName> = {
   success: "check",
   error: "alertTriangle",
   warning: "alertTriangle",
@@ -154,7 +154,7 @@ function ToastItemView({ item, onDismiss }: { item: ToastItem; onDismiss: (id: n
       <span
         className={`grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg ${variantIconBoxes[item.variant]}`}
       >
-        <Icon name={variantIcons[item.variant] as any} size={15} />
+        <Icon name={variantIcons[item.variant]} size={15} />
       </span>
       <span className="min-w-0 flex-1 break-words py-1 leading-snug">{item.message}</span>
       <button

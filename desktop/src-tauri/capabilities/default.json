@@ -14,13 +14,6 @@
     "core:window:allow-set-size",
     "core:window:allow-show",
     "core:window:allow-set-focus",
-    "process:default",
-    "clipboard-manager:default",
-    "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-read-image",
-    "clipboard-manager:allow-write-text",
-    "dialog:default",
-    "dialog:allow-open",
-    "dialog:allow-save"
+    "process:default"
   ]
 }
