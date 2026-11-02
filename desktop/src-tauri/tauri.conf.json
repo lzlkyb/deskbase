@@ -35,7 +35,7 @@
         "https://lzlkyb.github.io/deskbase/updater.json",
         "https://github.com/lzlkyb/deskbase/releases/latest/download/updater.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI0MjIzNTEyNTFGOURCQzkKUldUSjIvbFJFalVpdE5kV0JMZkE2RUY1NmFBK3N4WTFTZHI0ZzV3T3Q1STRmRys4akIrVkoxZFIK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU1QkQ4MkUxMTlEQjZDRDkKUldUWmJOc1o0WUs5VmF6bmdUSVh3SnRuUUpNWGRyc1FJc0F1QU1ISHpuNjFqMVRaNXVENFRMMS8K",
       "windows": {},
       "dangerousInsecureTransportProtocol": true,
       "active": true
