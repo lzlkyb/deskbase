@@ -153,8 +153,14 @@ fn error_class(err: &tauri_plugin_updater::Error) -> ErrorClass {
         | UpdaterError::BinaryNotFoundInArchive
         | UpdaterError::InvalidUpdaterFormat
         | UpdaterError::FailedToDetermineExtractPath
-        | UpdaterError::Extract(_)
         | UpdaterError::Tauri(_) => ErrorClass::Install,
+        // 平台差异：Extract 在插件里是 #[cfg(all(target_os = "windows", feature = "zip"))]，
+        // macOS/Linux 上枚举没有这个变体，直接列在共用的 `|` 链里会 E0599 编译不过
+        // （2026-11-02 首推 CI 的 macOS job 实测抓到——本地 Windows 全绿照不亮这盏灯）。
+        // 本 crate 用插件默认依赖（default features 含 zip），故 Windows 上该变体恒存在，
+        // 按 target_os 隔离即可；非 Windows 上落进下方通配臂（Unknown，行为保守）。
+        #[cfg(windows)]
+        UpdaterError::Extract(_) => ErrorClass::Install,
         _ => ErrorClass::Unknown,
     }
 }

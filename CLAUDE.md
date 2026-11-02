@@ -106,7 +106,7 @@ cargo test --no-default-features     # 含 tests/update_flow.rs：本地假源�
 3. **"流已结束"的信号有没有被处理？** 禁止 `let _ = rx.recv().await`。`None` / `Err` / `Ok(None)` 必须显式分支。特别注意：`timeout(d, fut).await.is_ok()` 对**已关闭的通道是 `Ok(None)` → `is_ok()` 为真**。
 4. **每轮的单次成本是多少？** 频率 × 单次成本要能口头算出来。
 5. **有没有兜底上限？** 吸收/重试/合并类循环必须有 `MAX_*` 或退避，使"生产端发疯"时最坏退化成固定频率。
-6. **平台分支那一半怎么验？** 写了 `cfg(not(windows))` 就必须回答它在 mac 上的行为靠什么保证（CI 测试 / 代码契约注释 / 真机）——**不能靠"看着对"**。
+6. **平台分支那一半怎么验？** 写了 `cfg(not(windows))` 就必须回答它在 mac 上的行为靠什么保证（CI 测试 / 代码契约注释 / 真机）——**不能靠"看着对"**。同理，**匹配第三方 crate 的平台相关 enum 变体**时（如 `tauri_plugin_updater::Error::Extract` 仅在 `windows + feature = "zip"` 下存在）必须给匹配臂加 `#[cfg]` 隔离，另一平台会直接 E0599 编译不过——本地只跑一个平台照不亮这盏灯，靠 CI 的双平台 job 兜底（2026-11-02 首推 CI 的 macOS job 实测抓到过）。
 
 ### 8.2 空实现（no-op）必须写明对调用方的契约
 
