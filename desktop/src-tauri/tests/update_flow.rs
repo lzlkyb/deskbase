@@ -85,6 +85,18 @@ where
     port
 }
 
+/// Tauri updater 的平台键（`{os}-{arch}`）。std 的 OS 名与 Tauri 的键名在
+/// macOS 上不同（`macos` vs `darwin`），必须映射；写死 `windows-x86_64`
+/// 会让 CI 的 macOS job 按当前平台（darwin-aarch64）找不到条目，
+/// 检查链路直接 manifest 错误（2026-11-02 首推实测）。
+fn updater_platform_key() -> String {
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        other => other,
+    };
+    format!("{os}-{}", std::env::consts::ARCH)
+}
+
 #[test]
 fn local_http_source_drives_check_download_and_signature_failure() {
     // mock 应用 + 真实 tauri.conf.json（pubkey / endpoints / http 允许均从那里读）。
@@ -111,13 +123,14 @@ fn local_http_source_drives_check_download_and_signature_failure() {
             format!(
                 concat!(
                     r#"{{"version":"{v}","notes":"本地集成测试","pub_date":"2026-10-27T00:00:00Z","#,
-                    r#""platforms":{{"windows-x86_64":{{"signature":"{sig}","#,
+                    r#""platforms":{{"{platform}":{{"signature":"{sig}","#,
                     r#""url":"http://127.0.0.1:{port}{path}"}}}}}}"#
                 ),
                 v = next_version,
                 sig = fake_sig,
                 port = port,
                 path = artifact_path,
+                platform = updater_platform_key(),
             )
         },
         artifact,
