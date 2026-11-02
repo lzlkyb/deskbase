@@ -14,6 +14,10 @@ TypeScript + Rust。它不是 Hello World 玩具：每一行都抽离自持续�
 复制仓库 → 一条命令改名 → 十分钟内得到一个**能跑、能自动更新、UI 成体系**的桌面应用，
 CI 已配好 Windows + macOS 双平台构建与发版。
 
+> 🚀 **完全不懂技术？** 读 [AI 上手指南](docs/AI上手指南.md)：用自然语言把需求说清楚，
+> AI 负责写代码，壳子负责地基——从零到做出自己的第一个桌面软件，当天的功夫。
+> 指南里有一段可直接复制给任何 AI 的"魔法提示词"。
+
 ## 截图
 
 | Workbench（改名预览） | 改名后的真实应用 |
@@ -75,8 +79,7 @@ node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的�
 #    同步更新 desktop/public/icon.png（index.html 骨架屏引它）
 
 # 4. 生成更新签名密钥对（自动更新的命脉，每个应用必须自己签）
-#    ⚠️ 壳子自带的是一次性测试公钥（仅供开箱即用的 cargo test 与本地联调），
-#    上线前必须换成自己生成的——
+#    壳子内置的是 deskbase 自己的发布公钥，复制后发版前必须换成你生成的——
 npx tauri signer generate -w ~/.tauri/my-tool.key
 #    公钥 → desktop/src-tauri/tauri.conf.json 的 plugins.updater.pubkey
 #    私钥 → GitHub 仓库 Settings → Secrets → TAURI_SIGNING_PRIVATE_KEY（整个文件内容）
@@ -99,6 +102,7 @@ npm run tauri dev
 deskbase/
 ├── CLAUDE.md                     # 工程纪律（AI 协作规则，改代码前先读）
 ├── CHANGELOG.md                  # Keep a Changelog 唯一手写源（更新弹框内容从这抽）
+├── docs/AI上手指南.md             # 平民化开发指南（含可直接发给 AI 的魔法提示词）
 ├── .github/workflows/build.yml   # CI：前端门禁 + Rust 测试 + tag 双平台发版
 ├── .githooks/pre-push             # 7 项本地门禁（启用：git config core.hooksPath .githooks）
 └── desktop/
@@ -164,6 +168,13 @@ cargo test  --no-default-features     # 单测 + tests/update_flow.rs 集成测�
 cd desktop && npm run release -- --patch    # 发版（tag，见 CLAUDE.md「发版流程」）
 ```
 
+## 版本历史
+
+| 版本 | 摘要 |
+|------|------|
+| v0.1.0 | deskbase 壳子基线：复制即可开始新的桌面应用 |
+| v0.0.9 | 壳子预览版：三层资产初版拼齐，复制流程跑通 |
+
 ## 工程纪律
 
 每次 push 前本地钩子跑 7 项门禁，CI 同标准：
@@ -228,6 +239,10 @@ Then replace the placeholder icons and generate your own signing key pair
 (`npx tauri signer generate -w ~/.tauri/my-tool.key`) — see the Chinese quick-start above for the
 full five steps. Seven local gates (component size / fmt / eslint / tsc / vitest / clippy /
 cargo test) run on every push; CI holds the same bar.
+
+> 🚀 **Non-technical?** There is a Chinese [AI onboarding guide](docs/AI上手指南.md) that walks
+> complete beginners from zero to their first desktop app: describe your idea in plain language,
+> paste the included prompt into any AI, and the shell handles the infrastructure.
 
 **Topics:** Tauri 2 · desktop app template · boilerplate · React · TypeScript · Rust · auto-update ·
 tray · cross-platform · Windows · macOS

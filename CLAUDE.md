@@ -16,6 +16,9 @@ node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的�
 
 三层资产与边界（各层清单与抽离方法详见根目录 `README.md`）：
 
+面向非技术用户的复制即用引导在 `docs/AI上手指南.md`（含可直接发给 AI 的提示词模板）；
+给 AI 的机器可读规范摘要在其第七章——被任何 AI 接手时，先读它。
+
 | 层 | 资产 | 位置 |
 |----|------|------|
 | UI 风格 | 设计 token + 30+ ui 组件 + layout 壳 + 动效体系 | `src/index.css` `src/components/ui/` `src/components/layout/` `src/lib/motion.ts` |
