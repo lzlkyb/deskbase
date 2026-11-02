@@ -63,7 +63,7 @@ describe("update dialog behavior", () => {
   it("有当前版本时按区间汇总随包记录（stats 与亮点反映累计，不是本次发布的伪统计）", async () => {
     // 与上一条互补：证明 stats 的出现条件是「存在可汇总的区间」，而不是 body 里有没有字。
     // currentVersion 取壳子随包 CHANGELOG（0.0.9 / 0.1.0）之下的 0.0.8：区间 (0.0.8, 99.0.0)
-    // 内有两版记录 ⇒ cross 汇总成立。cc-bridge 原版用 2.9.1 是因为它的 CHANGELOG 有 2.9.x 史。
+    // 内有两版记录 ⇒ cross 汇总成立。原版用 2.9.1 是因为 CHANGELOG 有 2.9.x 史。
     await mount({ ...props.update, body: "", currentVersion: "0.0.8" });
     expect(document.body.textContent).toContain("汇总已收录的");
     expect(document.querySelector('.update-stats')).not.toBeNull();

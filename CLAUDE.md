@@ -1,8 +1,8 @@
-# desktop-app-shell 项目开发规则
+# Deskbase 项目开发规则
 
 > 可复用的 Tauri 2 桌面应用壳子：技术架构（托盘/单实例/窗口生命周期）+ 软件更新架构
 > （签名/多源回退/updater.json 合并）+ UI 风格架构（设计 token + 组件库 + 动效体系）。
-> 规则从 cc-bridge 移植，剔除业务专属条目，保留全部工程纪律。
+> 规则从生产项目移植，剔除业务专属条目，保留全部工程纪律。
 
 ## 0. 先读这里：三层架构与复制即用
 
@@ -10,11 +10,11 @@
 
 ```bash
 # 复制壳子 → 一键改名（十余处产品标识一次改齐）→ 换图标 → 生成签名密钥 → 开发
-cp -r desktop-app-shell my-app && cd my-app/desktop
+cp -r deskbase my-app && cd my-app/desktop
 node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"
 ```
 
-三层资产与边界（详见 `docs/桌面应用壳子抽离方案-2026-10-26.md`）：
+三层资产与边界（各层清单与抽离方法详见根目录 `README.md`）：
 
 | 层 | 资产 | 位置 |
 |----|------|------|

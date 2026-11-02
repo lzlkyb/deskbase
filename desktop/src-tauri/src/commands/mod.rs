@@ -1,6 +1,6 @@
 //! 前端 → 后端的 Tauri IPC 命令层。**本文件只做聚合，不含任何实现。**
 //!
-//! 组织范式（承自 cc-bridge，可直接照用）：
+//! 组织范式（承自生产项目，可直接照用）：
 //! - 每个关注点一个子模块 `xxx.rs` 或 `xxx_cmds.rs`（后者用于与 crate 根下同名
 //!   实现模块冲突时，如 `backup` vs `backup_cmds`）。
 //! - 本文件 `mod` + `pub use` 重导出，`main.rs` 的 `invoke_handler![...]` 列

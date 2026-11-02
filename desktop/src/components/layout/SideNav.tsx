@@ -23,7 +23,7 @@ export const WORKSPACE_NAV: NavItem[] = [
  * 左侧主导航栏（壳子版）：品牌区（拖拽区）+ 导航项 + 设置入口（带更新未读红点）
  * + 底部状态胶囊 + 更新槽位。
  *
- * 与 cc-bridge 版 SideNav 的差异：剥去了「设置目录模式（SideNavSettings）」
+ * 与业务原版 SideNav 的差异：剥去了「设置目录模式（SideNavSettings）」
  * 「终端侧栏挂点」等业务件；状态胶囊保留**异常态槽位范式**（Collapse 0fr→1fr），
  * 业务按自家状态机填 tone/text/target 即可。
  */
@@ -52,7 +52,7 @@ function SideNavImpl({
   // 状态口径：startupError 升红；running 但业务报异常 = warn。壳子只演示范式。
   const startupError = status?.startupError ?? null;
   const pillShown = !!startupError || !!statusPill;
-  // 拆成原始值做依赖（对齐 cc-bridge 原版模式）：对象每次渲染都是新引用，
+  // 拆成原始值做依赖（对齐原版模式）：对象每次渲染都是新引用，
   // 直接当依赖会让 useLayoutEffect 每拍重跑并 setState 出新对象 → 无限渲染循环。
   const pillTone = statusPill?.tone;
   const pillText = statusPill?.text;

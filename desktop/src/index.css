@@ -1668,7 +1668,7 @@ select:focus-visible,
 
    为何必要：WebView2 **不会**像浏览器隐藏标签页那样自动节流宿主窗口隐藏后的动画。
    实测：窗口收进托盘前后，webview CPU 从 61.7% → 60.4% 单核（几乎没变）。
-   cc-bridge 是常驻托盘应用，绝大多数时间窗口不可见，这部分开销全是白烧。
+   本壳面向的是常驻托盘应用，绝大多数时间窗口不可见，这部分开销全是白烧。
 
    `data-app-hidden` 由 `useAppHiddenFlag()` 根据 Rust 侧发的 `app:visibility` 事件置于 <html>。
    用 `animation-play-state: paused` 而不是 `animation: none`：后者会让元素回到未动画状态

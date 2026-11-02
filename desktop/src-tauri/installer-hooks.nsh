@@ -4,9 +4,10 @@
 ; 业务需要时（典型：写 Windows 防火墙入站规则、注册 URL协议、装字体）在此展开，
 ; 并把 tauri.conf.json 的 bundle.windows.nsis.installerHooks 指向它。
 ;
-; 承自 cc-bridge 的三条经验，照做前先读：
-; 1. program 必须用 ${MAINBINARYNAME}（Tauri 模板顶部已 !define），不得写死 exe 名——
-;    productName 与 Cargo package 名可能不同，写死会让规则指向不存在的文件，
+; 承自生产实践的三条经验，照做前先读：
+; 1. program 必须用 ${MAINBINARYNAME}（Tauri 模板顶部已 !define），规则名用
+;    ${PRODUCTNAME}（同模板已定义，= productName）——都不得写死：productName 与
+;    Cargo package 名可能不同，写死会让规则指向不存在的文件，
 ;    netsh 照样返回 0、规则看着也在，却永远不生效。
 ; 2. netsh 规则要 profile=any（省略实测只落到 Public，域/专用网络下完全不生效），
 ;    且「先 delete 再 add」保证幂等，重装/升级不堆积重复规则。
@@ -19,9 +20,9 @@
 !macro NSIS_HOOK_POSTINSTALL
   ; 示例（默认注释掉）：为 7823/TCP 写入防火墙入站规则
   ; DetailPrint "配置 Windows 防火墙入站规则 (7823/TCP)..."
-  ; nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="MyApp" dir=in'
+  ; nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${PRODUCTNAME}" dir=in'
   ; Pop $0
-  ; nsExec::ExecToLog 'netsh advfirewall firewall add rule name="MyApp (7823/TCP)" dir=in action=allow protocol=TCP localport=7823 profile=any enable=yes program="$INSTDIR\${MAINBINARYNAME}.exe"'
+  ; nsExec::ExecToLog 'netsh advfirewall firewall add rule name="${PRODUCTNAME} (7823/TCP)" dir=in action=allow protocol=TCP localport=7823 profile=any enable=yes program="$INSTDIR\${MAINBINARYNAME}.exe"'
   ; Pop $0
   ; ${If} $0 == 0
   ;   DetailPrint "防火墙规则已写入。"
@@ -32,6 +33,6 @@
 
 !macro NSIS_HOOK_PREUNINSTALL
   ; 示例（默认注释掉）：卸载时清理同名规则
-  ; nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="MyApp (7823/TCP)" dir=in'
+  ; nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${PRODUCTNAME} (7823/TCP)" dir=in'
   ; Pop $0
 !macroend

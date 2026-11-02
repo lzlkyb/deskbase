@@ -39,7 +39,7 @@ const MAX_HOOKS = 8;
  *
  * 2026-10-27：整表清空。此前登记的 7 项（VersionHistoryModal / AboutGroup /
  * useSshTerminalSession / PerfCharts / useSshTransfer / CommandPalette /
- * BackupCleanupDialog）全部来自 cc-bridge 业务代码——壳子抽离时这些文件
+ * BackupCleanupDialog）全部来自业务代码——壳子抽离时这些文件
  * 没有跟过来，登记项全部指向**不存在的路径**，留着只会误导后来者
  * "这些文件超标但被豁免了"。当前壳子全部文件都在默认上限内（门禁实跑通过）。
  * 将来壳子自己的文件真超标了，再按棘轮登记。

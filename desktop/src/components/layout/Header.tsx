@@ -10,7 +10,7 @@ import { UpdateReadout } from "../update/UpdateReadout";
 /**
  * 应用顶栏（壳子版）：侧栏开关 + 安全徽章 + 下载读数 + 主题 + 窗口控件。
  *
- * 与 cc-bridge 版 Header 的差异：剥去了「服务启停按钮」「挂起命令胶囊」等业务件，
+ * 与业务原版 Header 的差异：剥去了「服务启停按钮」「挂起命令胶囊」等业务件，
  * 保留全部 chrome 范式——拖拽区划分（data-tauri-drag-region）、徽章槽位、
  * UpdateReadout 挂载点、窗口控件。业务按钮加在右侧 group 里即可。
  */

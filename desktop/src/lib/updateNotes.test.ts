@@ -11,7 +11,7 @@ function withHistory(notes: string, entries: unknown[]): string {
 
 describe("updateNotes 历史标记协议（跨前后端契约）", () => {
   it("剥掉写入侧产出的历史标记，元数据不作为段落泄漏进弹窗", () => {
-    // 曾经前端匹配 cc-bridge- 前缀、写入侧无前缀 → 标记永不匹配：
+    // 曾经前端匹配 legacy-release- 前缀、写入侧无前缀 → 标记永不匹配：
     // 远端历史静默失效，且元数据 JSON 作为一个段落渲染出来。
     const body = withHistory("### 亮点\n- 更稳定", [
       { version: "99.0.0", date: "2026-10-27", body: "### 修复\n- 修了一个 bug" },
@@ -35,8 +35,8 @@ describe("updateNotes 历史标记协议（跨前后端契约）", () => {
     expect(model.counts["修复"]).toBe(1);
   });
 
-  it("兼容 cc-bridge- 历史遗留标记（旧发布说明仍可读）", () => {
-    const body = `<!-- cc-bridge-release-history:${JSON.stringify([
+  it("兼容 legacy-release- 历史遗留标记（旧发布说明仍可读）", () => {
+    const body = `<!-- legacy-release-history:${JSON.stringify([
       { version: "1.0.0", date: "2026-01-01", body: "### 修复\n- 旧标记条目" },
     ])} -->`;
     const model = createUpdateNotesModel(
