@@ -1,162 +1,250 @@
-# desktop-app-shell
+# Deskbase
 
-可复用的 **Tauri 2 桌面应用壳子**：从生产项目 cc-bridge 抽离的完整桌面应用脚手架。
-复制一份、跑一条改名命令，10 分钟内得到一个能跑、能自动更新、UI 成体系的 Hello World 桌面应用。
+[![CI](https://github.com/lzlkyb/deskbase/actions/workflows/build.yml/badge.svg)](https://github.com/lzlkyb/deskbase/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/lzlkyb/deskbase)](https://github.com/lzlkyb/deskbase/releases)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![Rust](https://img.shields.io/badge/Rust-stable-DEA584?logo=rust&logoColor=black)](https://www.rust-lang.org)
 
-**包含三层资产**：
+**A production-proven Tauri 2 desktop app template — copy it, rename it, ship it.**
 
-| 层 | 内容 | 关键位置 |
-|----|------|---------|
-| 🎨 UI 风格架构 | 设计 token（浅/深双主题 + classic/glass 双材质）+ 30+ 基础组件 + layout 壳 + 动效体系（三档时长/统一 easing/减弱动效守卫） | `desktop/src/index.css` `desktop/src/components/ui/` `layout/` |
-| ⚙️ 技术架构 | App 骨架 + 托盘/单实例/窗口销毁重建/DWM 圆角 + 命令分层 + 路径白名单安全原语 + JSON 配置持久化 | `desktop/src/App.tsx` `desktop/src-tauri/src/main.rs` `commands/` `security/` |
-| 🔄 软件更新架构 | 单飞闸 + 指数退避 + 错误分类 → 前端状态机 + 可撤销自动重启 → 一键发版 + 跨平台 updater.json 合并 + CI tag 构建 | `desktop/src-tauri/src/commands/update.rs` `desktop/src/contexts/UpdateContext.tsx` `desktop/scripts/release.mjs` |
-
-不包含任何业务代码（MCP / SSH / 对话 GUI / 防火墙等）——那些在你的应用里按需加。
-
-设计文档见 [`docs/桌面应用壳子抽离方案-2026-10-26.md`](docs/桌面应用壳子抽离方案-2026-10-26.md)；
-工程纪律（版本真源、发版流程、体量门禁、性能检查项）见 [`CLAUDE.md`](CLAUDE.md)。
+Deskbase is an open-source desktop application shell (boilerplate / starter) built with
+**Tauri 2 + React 18 + TypeScript + Rust**. It is not a hello-world toy: every line is
+extracted from a production desktop app that ships auto-updates to real users. Copy the
+repo, run one rename command, and in ten minutes you have a running desktop app with
+**signed auto-updates, a complete design system, and CI that builds Windows + macOS releases**.
 
 ---
 
-## 快速开始（复制即用，5 步）
+## Screenshots
+
+| Workbench (rename preview) | Your app, right after renaming |
+|:--:|:--:|
+| ![Deskbase workbench](docs/screenshots/workbench-dark.png) | ![App home](docs/screenshots/app-home.png) |
+
+| Motion system — dark | Motion system — light |
+|:--:|:--:|
+| ![Motion preview dark](docs/screenshots/motion-dark.png) | ![Motion preview light](docs/screenshots/motion-light.png) |
+
+---
+
+## Why Deskbase
+
+Most desktop templates get you a window. Deskbase gets you the parts that actually cost
+weeks in production:
+
+- **🔐 Signed auto-update that survives the real world.** Single-flight guard, exponential
+  backoff, multi-endpoint fallback, typed error classification, cross-platform
+  `updater.json` merging, and a one-command release chain (`npm run release`) that tags,
+  builds on CI, and publishes. Includes a local fake-update-server for end-to-end testing
+  without deploying anything.
+- **🎨 A design system, not a CSS file.** Design tokens with light/dark themes and
+  classic/glass materials, 30+ accessible UI components (button, card, switch, modal, menu,
+  toast, badge…), a layout shell (drag region, tray-aware header), and a motion system with
+  three duration tiers, unified easing, and a `prefers-reduced-motion` guard — verified by
+  real-browser regression tests, not vibes.
+- **🧱 Desktop-correct app skeleton.** System tray, single-instance lock, window
+  destroy/recreate (~80 MB saved when hidden), DWM rounded corners, command layering,
+  path-whitelist security primitives, and JSON config persistence.
+- **🤖 Machine-enforced discipline.** Seven local gates run on every push (component size,
+  fmt, eslint, tsc, vitest, clippy, cargo test). CI mirrors them. Version numbers have a
+  single source of truth. The template holds itself to the standard it teaches.
+- **📦 Tiny.** The NSIS installer is ~3.2 MB. Adding a dependency requires justifying its
+  binary size cost first (red line: 15 MB).
+
+### The three layers
+
+| Layer | What's inside | Where |
+|-------|---------------|-------|
+| 🎨 UI style architecture | Design tokens (light/dark × classic/glass) + 30+ components + layout shell + motion system | `desktop/src/index.css` `desktop/src/components/ui/` `desktop/src/lib/motion.ts` |
+| ⚙️ App architecture | Tray + single instance + window lifecycle + DWM rounding + command layering + path security + JSON config | `desktop/src-tauri/src/main.rs` `desktop/src-tauri/src/commands/` `desktop/src-tauri/src/security/` |
+| 🔄 Update architecture | Single-flight + backoff + error classification → frontend state machine → undoable auto-restart → one-command release + cross-platform updater merge + CI | `desktop/src-tauri/src/commands/update.rs` `desktop/src/contexts/UpdateContext.tsx` `desktop/scripts/release.mjs` |
+
+No business code of any kind — that is what your copy is for.
+
+---
+
+## Quick Start
+
+**Prerequisites:** Node 22+, Rust stable, and the
+[Tauri 2 system dependencies](https://tauri.app/start/prerequisites/)
+(Windows: WebView2 + VS C++ Build Tools; macOS: Xcode CLT).
 
 ```bash
-# 0. 前置：Node 22+、Rust stable、Tauri 2 系统依赖（Windows 需 WebView2 + VS C++ Build Tools）
-#    https://tauri.app/start/prerequisites/
+# 1. Copy the shell (whole directory; git history optional)
+cp -r deskbase my-app && cd my-app/desktop
 
-# 1. 复制壳子（整目录拷贝，保留 git 仓库历史可选）
-cp -r desktop-app-shell my-app && cd my-app/desktop
+# 2. Rename everything in one shot: Cargo package/exe name, Rust crate name,
+#    tauri.conf.json, package.json, branding.rs tray tips, about.ts, HTML titles,
+#    CI artifact names — all ~17 product identifiers, zero misses
+node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "My Tool"
 
-# 2. 一键改名：产品标识一次改齐（Cargo 包名/exe 名、Rust crate 名、tauri.conf、
-#    package.json、branding.rs 托盘文案、about.ts、HTML 标题、CI 产物名……）
-#    漏改的典型症状：托盘 tooltip 还叫 MyApp、CI 找不到 exe、updater 404、
-#    Rust 编译直接 E0432（包名一改 crate 名就从 desktop_app_shell 变了）
-node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"
+# 3. Replace the placeholder icons in desktop/src-tauri/icons/
+#    (npx tauri icon your-logo.png generates the full set; keep public/icon.png in sync)
 
-# 3. 换图标（现在用的是壳子占位图）
-#    desktop/src-tauri/icons/ —— 至少替换 icon.ico / icon.png / 128x128.png / icon.icns
-#    可用 `npx tauri icon your-logo.png` 从一张图生成全套
-
-# 4. 生成更新签名密钥对（自动更新的命脉，每个应用必须自己签）
-#    ⚠️ 壳子自带的是一个一次性测试公钥（仅供开箱即用的 cargo test 与本地联调），
-#    上线前必须按此步骤换成自己生成的——
+# 4. Generate your own update signing key pair — the bundled key is a throwaway
+#    test key that only exists so `cargo test` runs out of the box
 npx tauri signer generate -w ~/.tauri/my-tool.key
-#    公钥   → desktop/src-tauri/tauri.conf.json 的 plugins.updater.pubkey
-#    私钥   → GitHub 仓库 Settings → Secrets → TAURI_SIGNING_PRIVATE_KEY（整个文件内容）
-#    另：tauri.conf.json 里的 dangerousInsecureTransportProtocol 是本地 http 联调开关，
-#    面向 https 源发布前删掉它
+#    public key  → desktop/src-tauri/tauri.conf.json → plugins.updater.pubkey
+#    private key → GitHub repo Settings → Secrets → TAURI_SIGNING_PRIVATE_KEY
+#    also delete the `dangerousInsecureTransportProtocol` flag before publishing
 
-# 5. 跑起来
-npm install        # ⚠️ 首次安装若报 "Cannot read properties of null (reading 'edgesOut')"
-                   # （npm 10.9.x + vitest 4 可选 peer 的已知 bug），加 --legacy-peer-deps 跑一次：
-                   #   npm install --legacy-peer-deps
-                   # 生成 package-lock.json 之后，npm install / npm ci 均恢复正常
+# 5. Run it
+npm install
 npm run tauri dev
 ```
 
-`npm run tauri dev` 起来后能看到：左侧导航（home/监控/设置）、顶栏（拖拽区/主题切换/更新状态）、
-首页示例（配置读写演示）、设置页（自动开机 + 更新历史弹框）、托盘菜单（打开面板/检查更新/退出）。
+> First install failing with `Cannot read properties of null (reading 'edgesOut')`?
+> That is a known npm 10.9.x + vitest 4 optional-peer bug. Run
+> `npm install --legacy-peer-deps` once to generate the lockfile; every later
+> `npm install` / `npm ci` works normally.
 
-## 目录结构
+After `npm run tauri dev` you get a working app shell: side navigation (home / monitor /
+settings), header with drag region + theme toggle + update status, a settings page with
+auto-launch and update history, and a tray menu (open / check update / quit).
+
+---
+
+## Repository Layout
 
 ```
-desktop-app-shell/
-├── CLAUDE.md                  # 工程纪律（AI 协作规则，先读它再改代码）
-├── CHANGELOG.md               # Keep a Changelog 唯一手写源（更新弹框内容从这抽）
-├── docs/                      # 设计文档
-├── design/                    # HTML 设计稿（改 UI 前先出稿）
-├── tools/fingerprint.py       # 装机环境指纹（排"我这能跑你那不能"用）
-├── .github/workflows/build.yml    # CI：前端门禁 + Rust 测试 + tag 双平台发版
-├── .githooks/pre-push          # 7 项本地门禁（启用：git config core.hooksPath .githooks）
+deskbase/
+├── CLAUDE.md                     # Engineering discipline — read before changing code
+├── CHANGELOG.md                  # Single hand-written source (Keep a Changelog)
+├── .github/workflows/build.yml   # CI: frontend gates + Rust tests + tag dual-platform release
+├── .githooks/pre-push             # 7 local gates (enable: git config core.hooksPath .githooks)
 └── desktop/
     ├── src/
-    │   ├── index.css                # 设计 token 体系（改 UI 先读它）
-    │   ├── App.tsx                  # 应用骨架：页面表/Ctrl+1~N/过渡动效
+    │   ├── index.css             # Design token system — read before touching UI
+    │   ├── App.tsx               # App skeleton: page table / Ctrl+1~N / transitions
     │   ├── components/
-    │   │   ├── ui/                  # 30+ 基础组件（按钮/卡片/开关/弹窗/徽章…）
-    │   │   ├── layout/              # Header + SideNav（拖拽区/徽章/更新状态）
-    │   │   ├── update/              # 更新 UI 全家桶（徽章/弹框/进度/可撤销重启）
-    │   │   └── tabs/                # 示例页：HomeTab / SettingsTab（照抄改）
-    │   ├── contexts/UpdateContext.tsx   # 更新状态机 idle→…→ready→重启
-    │   ├── hooks/                   # useAppHidden（窗口隐藏停轮询）等
-    │   └── lib/                     # 主题/动效/平台/配置 等纯函数
-    ├── scripts/                # 发版链（见下）
+    │   │   ├── ui/               # 30+ primitives (button/card/switch/modal/toast…)
+    │   │   ├── layout/           # Header + SideNav (drag region / badges / update slot)
+    │   │   ├── update/           # Update UI suite (pill / dialog / progress / undoable restart)
+    │   │   └── tabs/             # Example pages: HomeTab / SettingsTab — copy and extend
+    │   ├── contexts/UpdateContext.tsx  # Update state machine idle→…→ready→restart
+    │   ├── hooks/                # useAppHidden (pause polling while window hidden) etc.
+    │   └── lib/                  # Theme / motion / platform / config pure functions
+    ├── scripts/                  # Release chain (see below)
     └── src-tauri/
-        ├── src/main.rs               # 托盘/单实例/窗口生命周期/DWM 圆角
-        ├── src/commands/             # system.rs（配置/自启/外部打开）+ update.rs
-        ├── src/security/path.rs      # 路径白名单（canonicalize + 祖先遍历）
-        └── tauri.conf.json           # 产品标识/updater 端点/NSIS 配置
+        ├── src/main.rs           # Tray / single instance / window lifecycle / DWM rounding
+        ├── src/commands/         # system.rs (config/autostart/open) + update.rs
+        ├── src/security/path.rs  # Path whitelist (canonicalize + ancestor walk)
+        └── tauri.conf.json       # Product identity / updater endpoints / NSIS config
 ```
 
-## 常用命令
+---
+
+## How the Auto-Update Works
+
+```
+User clicks "Check for updates"
+  → Rust commands/update.rs: single-flight guard (concurrent checks collapse)
+      + endpoints tried in order + exponential backoff + classify_update_error codes
+  → frontend UpdateContext: idle → checking → available → downloading → ready → error/uptodate
+  → user clicks "Restart & install": 8-second undoable countdown → process restart
+  → release time: npm run release → tag → CI build-macos → build-windows
+      → generate-updater-json.mjs merges platform fragments → updater.json on the Release
+      → clients pick up the new version on next check
+```
+
+Verify the whole chain locally without deploying:
+
+```bash
+# terminal 1: fake update server serving the current NSIS bundle + updater.json
+node desktop/scripts/fake-update-server.mjs --dir desktop/src-tauri/target/release/bundle/nsis
+
+# terminal 2: point the dev app at the fake server
+APP_UPDATE_ENDPOINT=http://127.0.0.1:8787/updater.json npm run tauri dev
+```
+
+---
+
+## Commands
 
 ```bash
 cd desktop
 
-npm run tauri dev      # 开发（前端 HMR；改 Rust 需重启）
-npm run vite:build     # 只构建前端（tsc + vite）
-npm test               # vitest 单测
-npm run lint           # eslint（react-hooks 规则是重点）
-npm run motion:check   # 真实浏览器动效回归（重型手动项：需 npx playwright install，
-                       # 且先起 vite preview 让 motion-preview.html 在 1425 端口可达；
-                       # 不进 pre-push 7 项门禁，改 UI 动效时手动跑）
+npm run tauri dev        # dev (frontend HMR; Rust changes need a restart)
+npm run vite:build       # frontend only (tsc + vite)
+npm test                 # vitest
+npm run lint             # eslint (react-hooks rules are the point)
+npm run motion:check     # real-browser motion regression (heavy/manual: needs
+                         # npx playwright install + vite preview on :1425)
 
 cd src-tauri
 cargo clippy --all-targets --no-default-features -- -D warnings
-cargo test  --no-default-features     # 16 单测 + tests/update_flow.rs 集成测试
-                                     # （本地假源无头跑通「检查→下载→验签失败」；
-                                     #   曾经的 0xc0000139 已由 build.rs 补嵌 manifest 修复）
+cargo test  --no-default-features   # unit tests + tests/update_flow.rs integration
+                                     # (headless "check → download → verify-fail" against a local fake source)
 
-cd desktop && npm run release -- --patch    # 发版（tag，见 CLAUDE.md「发版流程」）
+cd desktop && npm run release -- --patch   # release (see "Release flow" in CLAUDE.md)
 ```
 
-## 版本历史
+---
 
-`npm run release` 会自动在表头插入新版本行（此表缺失时发版会明确报错中止）。
-更新弹窗里的详细内容来自 `CHANGELOG.md`，这里只留一行摘要。
+## Engineering Discipline
 
-| 版本 | 摘要 |
-| ---- | ---- |
-| v0.1.0 | 壳子基线：Tauri 2 技术架构 + 自动更新闭环 + 设计系统三层资产 |
+Seven gates run on every push (pre-push hook) and in CI (frontend job):
 
-## 更新架构怎么工作
+| # | Gate | Catches |
+|---|------|---------|
+| 1 | Component size (≤300 lines, ≤8 hooks per file, ratchet baseline) | God components |
+| 2 | `cargo fmt --check` | Style drift |
+| 3 | `eslint` (react-hooks rules) | Stale closures tsc can't see |
+| 4 | `tsc --noEmit` | Type holes |
+| 5 | `vitest` | Regressions in pure logic |
+| 6 | `cargo clippy -D warnings` | Rust lint debt |
+| 7 | `cargo test --no-default-features` | Broken update chain |
 
-```
-用户点「检查更新」
-  → Rust commands/update.rs：单飞闸（并发只放一个）+ endpoints 多源按序回退
-      + 指数退避重试 + classify_update_error 错误分类码 + update:* 事件
-  → 前端 UpdateContext：idle→checking→available→downloading→ready→error/uptodate
-  → 用户点「重启安装」：8 秒可撤销倒计时 → tauri-plugin-process 重启
-  → 发版时：npm run release → tag → CI build-macos → build-windows
-      → generate-updater-json.mjs 跨平台合并 → updater.json 附到 Release
-      → 客户端下次启动时读到新版本
-```
+Self-checks before you change things: new dependency → justify its binary-size cost
+(NSIS ≤ 15 MB red line); new background loop → walk the six-point checklist in
+`CLAUDE.md` §8.1 (yield points / producer failure / stream-end signal / per-round cost /
+fallback cap / platform-branch verification); UI change → read the real component source
+and ship an HTML mockup first.
 
-本地联调更新链路（不发版也能验证）：
+---
 
-```bash
-# 终端 1：起一个假的更新服务器（serve 当前 dist 的产物 + updater.json）
-node desktop/scripts/fake-update-server.mjs --dir desktop/src-tauri/target/release/bundle/nsis
+## Lessons Baked In
 
-# 终端 2：把 dev 应用的更新端点指到假服务器
-APP_UPDATE_ENDPOINT=http://127.0.0.1:8787/updater.json npm run tauri dev
-```
+- Closing a window **destroys** the webview (~80 MB saved) and the tray resurrects it;
+  exit goes through `ExitRequested{code: None}`.
+- While the window is invisible, polling **must** stop: `useAppHidden` +
+  `refetchInterval: false`.
+- `updater.json` fragments from macOS and Windows jobs must be **merged**
+  (`UPDATER_MERGE_INTO`), never overwrite each other.
+- Mirror failures must not be silent: after push, verify the raw URL clients actually
+  read and that versions match.
+- The 300-line / 8-hook component budget is enforced by
+  `check-component-size.mjs` as a ratchet — existing files may shrink, never grow.
 
-## 换平台/换技术栈前的自检
+---
 
-- **引新依赖前**：先评估二进制体积增量（红线：NSIS ≤ 15MB，壳子现状约 3.2MB）。
-- **加后台循环前**：过一遍 CLAUDE.md §8.1 六条检查项（让出点/生产端异常/流结束信号/单轮成本/兜底上限/平台分支验证）。
-- **改 UI 前**：先读 `src/index.css` token 与真实组件源码，再出 HTML 设计稿（`design/`），确认后落代码。
-- **提交前**：pre-push 钩子跑 7 项门禁（体量/eslint/tsc/vitest/fmt/clippy/test），不要手动起独立 cargo test 抢锁。
+## 中文简介
 
-## 从 cc-bridge 抽离时保留的关键经验
+Deskbase 是一个开源的 **Tauri 2 桌面应用壳子（模板）**，技术栈为 Tauri 2 + React 18 +
+TypeScript + Rust。它不是玩具示例——每一行都抽离自持续发版的生产桌面应用，包含三层经过
+验证的架构：
 
-- 关窗**销毁** webview 省约 80MB 内存（`release_webview_on_close`），靠托盘重生；退出用 `ExitRequested{code:None}` 拦截。
-- 窗口不可见时**必须**停轮询：`useAppHidden` + `refetchInterval: false`。
-- updater.json **跨平台合并**（`UPDATER_MERGE_INTO`）：两个平台各产片段，Windows 侧统一合并——防互覆。
-- Gitee 镜像失败不能静默：push 后必须回头验证客户端实际读的 raw 地址且版本号匹配（cc-bridge v2.4.0~v2.5.0 四个版本绿灯但镜像 404 的教训）。
-- 组件体量红线（300 行 + 8 个状态）由 `check-component-size.mjs` 机器执行，棘轮式管理存量。
+- **软件更新架构**：单飞闸、指数退避、多源回退、错误分类、可撤销自动重启、一键发版链
+  （`npm run release`）、CI 双平台构建与跨平台 updater.json 合并，附带本地假更新服务器可
+  端到端联调；
+- **技术架构**：托盘、单实例、关窗销毁 webview 省约 80MB 内存、DWM 圆角、命令分层、路径
+  白名单安全原语、JSON 配置持久化；
+- **UI 风格架构**：设计 token（浅/深双主题 × classic/glass 双材质）、30+ 可访问组件、
+  layout 壳、三档时长 + 统一 easing + 减弱动效守卫的动效体系（真实浏览器回归测试验证）。
 
-## 许可
+复制一份、跑一条 `rename-app.mjs` 命令（十七处产品标识一次改齐），十分钟得到一个能跑、
+能自动更新、UI 成体系的桌面应用。七项本地门禁（体量/eslint/tsc/vitest/fmt/clippy/test）
+由机器强制执行，CI 同标准把关。MIT 许可。
 
-MIT（LICENSE）
+---
+
+## Contributing
+
+Issues and PRs welcome. Please keep the gates green (`.githooks/pre-push` runs them all)
+and follow the commit prefixes in `CLAUDE.md`.
+
+## License
+
+[MIT](LICENSE) © Deskbase contributors
