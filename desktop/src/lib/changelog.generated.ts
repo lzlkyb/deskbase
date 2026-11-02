@@ -4,6 +4,20 @@ import type { ChangelogEntry } from "./about";
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.1",
+    date: "2026-11-02",
+    items: [
+      { category: "feat", text: "AI 上手指南：完全不懂技术的用户也能基于壳子开发桌面软件，含可直接复制给任何 AI 的提示词模板" },
+      { category: "feat", text: "README 开源门面：中文主体 + 英文简介 + 四张实拍截图" },
+      { category: "feat", text: "更新链路集成测试：本地假源无头跑通「检查→下载→验签失败」全链路" },
+      { category: "improve", text: "壳子品牌化为 Deskbase：一键改名脚本十七处产品标识一次改齐" },
+      { category: "improve", text: "公开前内容净化：移除内部方案文档、私有项目名与本机路径" },
+      { category: "improve", text: "更新签名公钥更换为 deskbase 专属密钥对（私钥存于 GitHub secret）" },
+      { category: "fix", text: "修复 macOS 编译兼容（平台相关枚举变体隔离）与测试平台键动态生成" },
+      { category: "fix", text: "更换品牌图标：应用图标 + 安装器图片 + 骨架屏图标" },
+    ],
+  },
+  {
     version: "0.1.0",
     date: "2026-10-26",
     items: [
