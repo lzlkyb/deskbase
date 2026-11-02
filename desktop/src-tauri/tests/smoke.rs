@@ -10,5 +10,5 @@
 #[test]
 fn public_api_is_linkable() {
     // branding 是纯 Rust 显示名单，零原生依赖，适合做链接冒烟。
-    assert!(!desktop_app_shell::branding::APP_DISPLAY_NAME.is_empty());
+    assert!(!deskbase::branding::APP_DISPLAY_NAME.is_empty());
 }

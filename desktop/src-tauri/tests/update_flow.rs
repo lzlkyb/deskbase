@@ -1,6 +1,6 @@
 //! 更新链路集成测试：本地 HTTP 假源跑通「检查 → 下载 → 验签失败」。
 //!
-//! 为什么值得写（对应 cc-bridge 更新测试指南 §6 的缺口）：这条链路此前零自动化
+//! 为什么值得写（对应生产项目更新测试的缺口）：这条链路此前零自动化
 //! 覆盖，全靠人工点 UI；而 UI 取证依赖「屏幕解锁 + 窗口置顶」，锁屏机器上整条
 //! 链路无法验证。本测试用 std::net::TcpListener 起一个一次性本地源，直接驱动
 //! check_update / start_update 两个命令，断言事件序列与错误码，全程无头，
@@ -18,7 +18,7 @@
 //! 更新源，需要 tauri.conf.json 的 plugins.updater.dangerousInsecureTransportProtocol
 //! = true（本地联调开关，见 scripts/fake-update-server.mjs 头注）。debug 两者皆可。
 
-use desktop_app_shell::commands::{check_update, start_update};
+use deskbase::commands::{check_update, start_update};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use tauri::test::mock_builder;

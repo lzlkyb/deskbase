@@ -8,7 +8,7 @@ import "./preview.css";
 // 刻意不接任何业务模块——壳子没有业务，预览里的内容就是「复制即用五步」本身。
 
 const steps: { key: string; icon: IconName; label: string; cmd: string; note: string }[] = [
-  { key: "copy", icon: "copy", label: "复制", cmd: "cp -r desktop-app-shell my-app && cd my-app/desktop", note: "整目录拷贝，git 历史可选保留。" },
+  { key: "copy", icon: "copy", label: "复制", cmd: "cp -r deskbase my-app && cd my-app/desktop", note: "整目录拷贝，git 历史可选保留。" },
   { key: "rename", icon: "terminal", label: "改名", cmd: 'node scripts/rename-app.mjs my-tool --repo your-name/my-tool --display "我的工具"', note: "十余处产品标识一次改齐：包名/exe 名、Rust crate 名、tauri.conf、branding.rs、CI 产物名。" },
   { key: "icon", icon: "plug", label: "换图标", cmd: "npx tauri icon your-logo.png", note: "从一张图生成 icons/ 全套（ico/icns/png），现在还是占位图。" },
   { key: "key", icon: "key", label: "签名密钥", cmd: "npx tauri signer generate -w ~/.tauri/my-tool.key", note: "公钥进 tauri.conf.json 的 updater.pubkey，私钥进 GitHub secret。复制壳子的密钥发不了版。" },
@@ -43,7 +43,7 @@ function App() {
   };
   const toolButton = (icon: IconName, label: string, action: () => void) => <button className="icon-button" title={label} aria-label={label} onClick={action}><Icon name={icon}/></button>;
   const chain = [
-    { key: "app", name: "应用进程", detail: running ? "desktop-app-shell.exe · 运行中" : "未启动", icon: "monitor" as IconName, tone: running ? "ok" : "bad" },
+    { key: "app", name: "应用进程", detail: running ? "deskbase.exe · 运行中" : "未启动", icon: "monitor" as IconName, tone: running ? "ok" : "bad" },
     { key: "tray", name: "系统托盘", detail: running ? "常驻 · 单实例锁" : "随进程退出", icon: "plug" as IconName, tone: running ? "ok" : "bad" },
     { key: "update", name: "自动更新", detail: updateFailed ? "检查失败 · 已分类报错" : running ? "GitHub + Gitee 双源" : "未检查", icon: "refresh" as IconName, tone: updateFailed ? "bad" : running ? "ok" : "" },
   ];
@@ -51,7 +51,7 @@ function App() {
     <div className="preview-bar"><span><b>设计预览</b><span className="preview-caption">A 工作台气质 · B 字体与布局</span></span><label>示例状态 <select aria-label="示例状态" value={scenario} onChange={e => setScenario(e.target.value)}><option value="running">正常运行</option><option value="first">首次运行</option><option value="updateFailed">更新检查失败</option><option value="stopped">应用已停止</option></select></label></div>
     <div className="shell" data-collapsed={collapsed}>
       <aside className="sidebar">
-        <div className="brand"><img src="/icon.png" alt=""/><div><strong>MyApp</strong><span>桌面应用壳子</span></div></div>
+        <div className="brand"><img src="/icon.png" alt=""/><div><strong>Deskbase</strong><span>桌面应用壳子</span></div></div>
         <nav aria-label="工作区"><button className="nav-item selected" aria-label="首页" aria-current="page"><Icon name="monitor"/><span>首页</span><kbd>1</kbd></button>{([["activity", "监控"], ["log", "日志"]] as [IconName,string][]).map(([icon,label],i)=><button key={label} className="nav-item" title={label} onClick={()=>showInfo(`${label}页由你的业务决定；壳子只提供布局壳与导航骨架。`)}><Icon name={icon}/><span>{label}</span><kbd>{i+2}</kbd></button>)}</nav>
         <div className="sidebar-bottom"><div className="workspace-note"><Icon name="monitor"/><div>本机工作区<span>Windows · 托盘常驻</span></div></div><button className="nav-item" title="设置" onClick={()=>showInfo("设置页已随壳子提供：自动开机、更新历史、关于卡片。")}><Icon name="settings"/><span>设置</span></button><div className="sidebar-status"><i className={running ? "dot" : "dot muted"}/><span>{running ? "应用运行中" : "应用已停止"}</span></div></div>
       </aside>
@@ -81,7 +81,7 @@ function App() {
             ["一键改名脚本", "desktop / scripts / rename-app.mjs", "feat", "十余处", "23:34"],
             ["示例页接线", "desktop / src / components / tabs", "feat", "2 页", "23:40"],
           ].map(([label,path,tool,latency,time])=><div className="activity-row" key={time}><span className="activity-check"><Icon name="check" size={13}/></span><span className="activity-name">{label}<small>{path}</small></span><code>{tool}</code><span>{latency}</span><time>{time}</time></div>)}</div>}</section>
-          <footer className="page-footer">MyApp<span>复制即用 · 自动更新 · 设计体系</span></footer>
+          <footer className="page-footer">Deskbase<span>复制即用 · 自动更新 · 设计体系</span></footer>
         </main>
       </div>
     </div>

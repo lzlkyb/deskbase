@@ -3,8 +3,8 @@
  * rename-app.mjs
  * 一键把壳子改成你的应用：产品标识在仓库里散落十余处，手工改必漏
  * （漏一处的典型症状：托盘 tooltip 还叫 MyApp、CI 找不到 exe、updater 404、
- *  Rust 编译不过——包名一改 crate 名就从 desktop_app_shell 变成新名，源码里的
- *  use desktop_app_shell::* 不改直接 E0432）。
+ *  Rust 编译不过——包名一改 crate 名就从 deskbase 变成新名，源码里的
+ *  use deskbase::* 不改直接 E0432）。
  * 本脚本把它们一次改齐，复制壳子后的第一步就是跑它。
  *
  * 用法：
@@ -20,7 +20,7 @@
  *   src-tauri/tauri.conf.json   productName / identifier / 窗口 title / updater endpoints（给了 --repo 时）
  *   package.json(+ -lock.json)  name
  *   src-tauri/src/branding.rs   APP_DISPLAY_NAME（托盘 tooltip 经 format! 运行时绑定）
- *   src-tauri/src 与 tests 下所有 .rs   crate 名 desktop_app_shell → 下划线形式（不改编译不过）
+ *   src-tauri/src 与 tests 下所有 .rs   crate 名 deskbase → 下划线形式（不改编译不过）
  *   src/lib/about.ts            APP_INFO.name / author / repoUrl / description
  *   index.html / motion-preview.html / scripts/build-design-preview.mjs   标题里的显示名
  *   src/design-preview/main.tsx   预览页品牌区/页脚显示名 + 壳子目录名与 exe 进程名
@@ -31,7 +31,7 @@
  * 存储键不在此列：windowState/appearance 的 localStorage key 与更新历史的协议标记
  * 都由 APP_SLUG / 通用标记动态推导，改名自动跟随（见 lib/about.ts 的 APP_SLUG）。
  *
- * 替换是子串级的（build.yml 的 desktop-app-shell_${VERSION}_xxx.zip 这类复合名也要换）。
+ * 替换是子串级的（build.yml 的 deskbase_${VERSION}_xxx.zip 这类复合名也要换）。
  * 幂等靠增量模式：已改名过的仓库重跑时，已是目标状态的替换对逐对跳过——
  * 「补 --repo 重跑」不会把 myshell-app-macos 二次替换成 mymyshell-app-macos。
  *
@@ -50,10 +50,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");          // desktop/
 const REPO_ROOT = path.resolve(ROOT, "..");          // 仓库根
 
-const OLD_SLUG = "desktop-app-shell";
-const OLD_DISPLAY = "MyApp";
-const OLD_OWNER = "your-name";
-const OLD_REPO = "your-app";
+const OLD_SLUG = "deskbase";
+const OLD_DISPLAY = "Deskbase";
+const OLD_OWNER = "lzlkyb";
+const OLD_REPO = "deskbase";
 
 function fail(msg) {
   console.error(`\x1b[31m[RENAME ERROR]\x1b[0m ${msg}`);
@@ -112,11 +112,11 @@ if (slug === OLD_SLUG) {
 
 info(`短名(slug):    ${OLD_SLUG} → ${slug}`);
 info(`显示名:        ${OLD_DISPLAY} → ${display}`);
-info(`identifier:    com.example.shell → ${identifier}`);
+info(`identifier:    com.example.deskbase → ${identifier}`);
 if (repoArg) info(`仓库:          ${owner}/${repoName}`);
 
 // ── 替换引擎 ──
-// 子串替换（build.yml 的 desktop-app-shell_${VERSION}_xxx.zip 这类复合名也要换）。
+// 子串替换（build.yml 的 deskbase_${VERSION}_xxx.zip 这类复合名也要换）。
 // 幂等靠「增量模式」：仓库已改名过时（Cargo.toml 的 name 已不是壳子名），
 // 已是目标状态的替换对逐对跳过——官方建议的「补 --repo 重跑」不会把
 // myshell-app-macos 二次替换成 mymyshell-app-macos。首次改名不走该闸，
@@ -180,8 +180,8 @@ function applyReplacements(relPath, pairs, { optional = false, critical = [] } =
 }
 
 // 递归替换目录下所有 .rs 文件的 crate 名（子串替换 + 增量模式幂等闸）。
-// 包名 desktop-app-shell 对应的 crate 名是 desktop_app_shell（连字符变下划线）；
-// 包名一改，crate 名跟着变，源码与测试里的 use desktop_app_shell::* 不同步改
+// 包名 deskbase 的 crate 名同为 deskbase；带连字符的包名（如 my-tool）crate 名变下划线
+// （my_tool）——包名一改，crate 名跟着变，源码与测试里的 use deskbase::* 不同步改
 // 就是 E0432——这是复制壳子后最容易踩的坑。
 function applyCrateRenameToDir(relDir, from, to) {
   const abs = path.join(REPO_ROOT, relDir);
@@ -224,12 +224,12 @@ applyReplacements("desktop/src-tauri/Cargo.toml", [
 //    静默地错——这两项写回后必须验证新值在文件里。
 applyReplacements("desktop/src-tauri/tauri.conf.json", [
   [`"productName": "${OLD_SLUG}"`, `"productName": "${slug}"`],
-  [`"identifier": "com.example.shell"`, `"identifier": "${identifier}"`],
+  [`"identifier": "com.example.deskbase"`, `"identifier": "${identifier}"`],
   [`"title": "${OLD_DISPLAY}"`, `"title": "${display}"`],
   ...(repoArg
     ? [
-        [`https://YOUR-USER.github.io/YOUR-REPO/updater.json`, `https://${owner}.github.io/${repoName}/updater.json`],
-        [`https://github.com/YOUR-USER/YOUR-REPO/releases/latest/download/updater.json`, `https://github.com/${owner}/${repoName}/releases/latest/download/updater.json`],
+        [`https://${OLD_OWNER}.github.io/${OLD_REPO}/updater.json`, `https://${owner}.github.io/${repoName}/updater.json`],
+        [`https://github.com/${OLD_OWNER}/${OLD_REPO}/releases/latest/download/updater.json`, `https://github.com/${owner}/${repoName}/releases/latest/download/updater.json`],
       ]
     : []),
 ], { critical: [`"productName": "${slug}"`, `"identifier": "${identifier}"`] });
@@ -265,14 +265,14 @@ applyReplacements("desktop/index.html", [[OLD_DISPLAY, display]]);
 applyReplacements("desktop/motion-preview.html", [[OLD_DISPLAY, display]]);
 applyReplacements("desktop/scripts/build-design-preview.mjs", [[OLD_DISPLAY, display]]);
 // design-preview 预览页：品牌区/页脚的显示名 + "复制"卡片的 cp 示例与"应用进程"
-// 卡片里的 exe 名。两类都要换：只换 slug 会留下满页 "MyApp"（showcase 门面）。
+// 卡片里的 exe 名。两类都要换：只换 slug 会留下满页 "Deskbase"（showcase 门面）。
 applyReplacements("desktop/src/design-preview/main.tsx", [
   [OLD_DISPLAY, display],
   [OLD_SLUG, slug],
 ], { optional: true });
 
 // 7. Rust crate 名：Cargo.toml 的 name 决定 lib/bin 的 crate 名（连字符→下划线），
-//    main.rs 的 use desktop_app_shell::*、两个集成测试的 use 语句都必须同步，否则 E0432。
+//    main.rs 的 use deskbase::*、两个集成测试的 use 语句都必须同步，否则 E0432。
 const OLD_CRATE = OLD_SLUG.replace(/-/g, "_");
 const NEW_CRATE = slug.replace(/-/g, "_");
 info(`Rust crate 名: ${OLD_CRATE} → ${NEW_CRATE}`);
@@ -291,16 +291,18 @@ applyReplacements("desktop/scripts/generate-updater-json.mjs", [
 ]);
 
 // 9. CI：exe 名（Cargo 包名变了，构建产物路径跟着变）、zip 前缀、artifact 名。
+//    复合名（deskbase-macos/deskbase-windows）必须排在 OLD_SLUG 之前换：它们含
+//    slug 子串，先换 slug 会把复合名拦腰截成新 slug-macos，后面的复合名对就落空。
 applyReplacements(".github/workflows/build.yml", [
+  ["deskbase-macos", `${slug}-macos`],
+  ["deskbase-windows", `${slug}-windows`],
   [OLD_SLUG, slug],
-  ["shell-macos", `${slug}-macos`],
-  ["shell-windows", `${slug}-windows`],
 ]);
 
 // 10. 仓库根文档的壳子身份：README 大标题 / CLAUDE.md 大标题 / LICENSE 版权行。
 //     这三处不在桌面目录内，但同样是「壳子名没改干净」的可见残留。
 //     带 `# `/`Copyright ` 前缀做锚，不会误伤 README/CLAUDE.md 里作为复制示例的
-//     `cp -r desktop-app-shell my-app`（那正是演示「从壳子复制」，保留旧名才对）。
+//     `cp -r deskbase my-app`（那正是演示「从壳子复制」，保留旧名才对）。
 applyReplacements("README.md", [
   [`# ${OLD_SLUG}`, `# ${display}`],
 ]);
@@ -308,7 +310,7 @@ applyReplacements("CLAUDE.md", [
   [`# ${OLD_SLUG} 项目开发规则`, `# ${display} 项目开发规则`],
 ]);
 applyReplacements("LICENSE", [
-  [`Copyright (c) 2026 ${OLD_SLUG} contributors`, `Copyright (c) 2026 ${owner ?? slug} contributors`],
+  [`Copyright (c) 2026 ${OLD_OWNER} contributors`, `Copyright (c) 2026 ${owner ?? slug} contributors`],
 ]);
 
 // ── 收尾提醒 ──
@@ -325,6 +327,6 @@ if (!repoArg) {
   console.log("     或手工改 tauri.conf.json 的 plugins.updater.endpoints（现在还是 YOUR-USER 占位符）");
 }
 console.log(`  ${++todoNo}. 若已存在 Cargo.lock / package-lock.json，跑 cargo check 与 npm install 让锁文件跟上新包名。`);
-console.log(`  ${++todoNo}. 核对 docs/ 下的抽离方案文档：含壳子抽离过程与本机路径，公开模板前评估是否移除。`);
+console.log(`  ${++todoNo}. 把 README.md 与 CHANGELOG.md 从模板说明换成你的项目信息（截图在 docs/screenshots/）。`);
 console.log("");
 success(`${display}（${slug}）就绪。npm install && npm run tauri dev 即可看到效果。`);

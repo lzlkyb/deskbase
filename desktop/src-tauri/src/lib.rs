@@ -16,6 +16,6 @@ pub mod config;
 pub mod security;
 pub mod state;
 
-// main.rs 用 `use desktop_app_shell::*;` 一把引入；AppState 是最常被引用的托管状态，
-// 在根上再导出，避免 main.rs 里写 `use desktop_app_shell::state::AppState` 的长路径。
+// main.rs 用 `use deskbase::*;` 一把引入；AppState 是最常被引用的托管状态，
+// 在根上再导出，避免 main.rs 里写 `use deskbase::state::AppState` 的长路径。
 pub use state::AppState;

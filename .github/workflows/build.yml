@@ -214,7 +214,7 @@ jobs:
           VERSION=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
           APP_DIR=src-tauri/target/release/bundle/macos
           APP_NAME=$(node -e "console.log(require('./src-tauri/tauri.conf.json').productName)")
-          ZIP="desktop-app-shell_${VERSION}_aarch64-apple-darwin.zip"
+          ZIP="deskbase_${VERSION}_aarch64-apple-darwin.zip"
           # 用 ditto 而不是 zip：它会保留 .app 的资源叉与符号链接，
           # 普通 zip 会破坏 bundle 结构导致解压后打不开。
           ditto -c -k --sequesterRsrc --keepParent "$APP_DIR/$APP_NAME.app" "$ZIP"
@@ -226,7 +226,7 @@ jobs:
           mkdir -p dist-out
           cp src-tauri/target/release/bundle/macos/*.app.tar.gz dist-out/ 2>/dev/null || true
           cp src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist-out/ 2>/dev/null || true
-          cp desktop-app-shell_*_aarch64-apple-darwin.zip dist-out/ 2>/dev/null || true
+          cp deskbase_*_aarch64-apple-darwin.zip dist-out/ 2>/dev/null || true
           # 平台片段只作为 artifact 传给 build-windows 合并，**不** attach 到 Release
           cp dist/updater-macos.json dist-out/ 2>/dev/null || true
           cp dist/updater-macos-gitee.json dist-out/ 2>/dev/null || true
@@ -234,7 +234,7 @@ jobs:
 
       - uses: actions/upload-artifact@v5
         with:
-          name: shell-macos
+          name: deskbase-macos
           path: dist-out/*
 
       # 只 attach 用户/updater 要下载的东西。updater.json 由 build-windows 合并后统一 attach，
@@ -272,7 +272,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v5
         with:
-          name: shell-macos
+          name: deskbase-macos
           path: mac-artifact
 
       - name: 🔑 准备签名密钥（文件路径方式）
@@ -395,8 +395,8 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content desktop/src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          $exePath = "desktop/src-tauri/target/release/desktop-app-shell.exe"
-          $zipName = "desktop-app-shell_$version`_x86_64-pc-windows-msvc.zip"
+          $exePath = "desktop/src-tauri/target/release/deskbase.exe"
+          $zipName = "deskbase_$version`_x86_64-pc-windows-msvc.zip"
 
           if (-not (Test-Path $exePath)) {
             Write-Host "❌ 绿色版 exe 不存在: $exePath"
@@ -420,11 +420,11 @@ jobs:
           Copy-Item desktop\src-tauri\target\release\bundle\nsis\*.exe dist-out\ -ErrorAction SilentlyContinue
           Copy-Item desktop\src-tauri\target\release\bundle\nsis\*.exe.sig dist-out\ -ErrorAction SilentlyContinue
           Copy-Item desktop\dist\updater.json dist-out\ -ErrorAction SilentlyContinue
-          Copy-Item desktop-app-shell_*.zip dist-out\ -ErrorAction SilentlyContinue
+          Copy-Item deskbase_*.zip dist-out\ -ErrorAction SilentlyContinue
 
       - uses: actions/upload-artifact@v5
         with:
-          name: shell-windows
+          name: deskbase-windows
           path: dist-out/*
 
       - name: Attach to GitHub Release

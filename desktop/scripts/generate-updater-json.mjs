@@ -30,7 +30,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const BUNDLE_DIR = path.join(ROOT, "src-tauri", "target", "release", "bundle");
 
-const [FALLBACK_OWNER, FALLBACK_REPO] = ["your-name", "your-app"];
+const [FALLBACK_OWNER, FALLBACK_REPO] = ["lzlkyb", "deskbase"];
 const [REPO_OWNER, REPO_NAME] = (process.env.GITHUB_REPOSITORY || `${FALLBACK_OWNER}/${FALLBACK_REPO}`).split("/");
 // 二进制下载基线 URL：默认 GitHub；CI/生产可经 UPDATER_DOWNLOAD_BASE 指向镜像（如 ghproxy.net），
 // 解决国内用户直连 GitHub 下载慢的问题。镜像需能代理 GitHub Release 资产（updater.json 与 .exe 同源）。
@@ -182,7 +182,7 @@ function main() {
   const tag = process.env.GITHUB_RELEASE_TAG || `v${version}`;
   const changelogPath = path.join(ROOT, "..", "CHANGELOG.md");
   const notes = buildUpdateNotes(
-    process.env.UPDATER_NOTES || `MyApp v${version}`,
+    process.env.UPDATER_NOTES || `Deskbase v${version}`,
     version,
     fs.existsSync(changelogPath) ? fs.readFileSync(changelogPath, "utf-8") : "",
   );

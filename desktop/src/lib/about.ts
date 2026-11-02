@@ -10,13 +10,13 @@ export const APP_INFO = {
   // 面向用户的**显示名**。与 Rust 侧 `src-tauri/src/branding.rs` 的 APP_DISPLAY_NAME
   // 是同一个字符串的两份维护（前端拿不到 Rust 常量，只能各存一份），改这里请同步改那边
   // （或跑 `node scripts/rename-app.mjs` 一把改完）。
-  name: "MyApp",
+  name: "Deskbase",
   // 侧栏品牌区标语。
   tagline: "从这里开始你的桌面应用",
-  author: "your-name",
-  repoUrl: "https://github.com/your-name/your-app",
+  author: "lzlkyb",
+  repoUrl: "https://github.com/lzlkyb/deskbase",
   license: "MIT",
-  description: "基于 desktop-app-shell 的桌面应用",
+  description: "基于 deskbase 的桌面应用",
 } as const;
 
 export type ChangeCategory = "feat" | "improve" | "fix" | "sec";

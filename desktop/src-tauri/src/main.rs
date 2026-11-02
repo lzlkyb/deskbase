@@ -3,7 +3,7 @@
 //! 这是壳子的 Rust 侧全部家当。业务模块（HTTP 服务、数据库、各域命令）在
 //! `lib.rs` 里挂，本文件只管「一个常驻托盘的桌面应用」本身。
 //!
-//! 承自 cc-bridge 的三个关键设计，改动前先读注释：
+//! 承自生产项目的三个关键设计，改动前先读注释：
 //! 1. 关窗**销毁**窗口而不是 hide：webview 进程组实测占约 80MB，hide 一个字节都不释放；
 //! 2. 拦 `ExitRequested{code:None}`：关窗销毁后「最后一个窗口关闭」不应退出应用；
 //! 3. `sync_window_visibility` 5s 状态复核：mac 最小化不发窗口事件，只靠事件会漏暂停。
@@ -20,7 +20,7 @@ use tauri::Manager;
 #[cfg(feature = "notifications")]
 use tauri_plugin_notification::NotificationExt;
 
-use desktop_app_shell::*;
+use deskbase::*;
 
 /// 统一 toast 通知辅助：notifications feature 关闭时为 no-op。
 /// 集中一处门控，避免每个调用点重复 #[cfg]。
@@ -447,7 +447,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         loop {
                             ticker.tick().await;
                             sync_window_visibility(&bg);
-                            // 业务应用把「刷新托盘状态」也放这里（承自 cc-bridge 的
+                            // 业务应用把「刷新托盘状态」也放这里（承自生产实践的
                             // refresh_and_report_ip_change），本壳子无业务状态，
                             // 只保留去重刷新的调用范式。
                             if let Some(tray) = bg.tray_by_id("main-tray") {

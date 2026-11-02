@@ -10,7 +10,7 @@
 //! 前端那侧对应 `src/lib/about.ts` 的 `APP_INFO.name`，是同一个字符串的第二份维护
 //! （前端拿不到 Rust 常量，只能各存一份）。改这里请同步改那边。
 
-pub const APP_DISPLAY_NAME: &str = "MyApp";
+pub const APP_DISPLAY_NAME: &str = "Deskbase";
 
 /// 托盘 tooltip 的三条文案，用 `format!` 在**运行时**拼进 `APP_DISPLAY_NAME`。
 ///

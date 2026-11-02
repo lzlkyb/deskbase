@@ -20,5 +20,5 @@ const js = result.outputFiles.find(f => f.path.endsWith(".js")).text.replaceAll(
 const css = result.outputFiles.find(f => f.path.endsWith(".css")).text;
 const target = path.resolve(desktop, "../design/2026-10-16-workbench.html");
 await mkdir(path.dirname(target), { recursive: true });
-await writeFile(target, `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MyApp · 设计预览</title><link rel="icon" href="${icon}"><style>${css}</style></head><body><div id="root"></div><script>${js}</script></body></html>`, "utf8");
+await writeFile(target, `<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deskbase · 设计预览</title><link rel="icon" href="${icon}"><style>${css}</style></head><body><div id="root"></div><script>${js}</script></body></html>`, "utf8");
 console.log(target);

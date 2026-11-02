@@ -1,5 +1,5 @@
 [package]
-name = "desktop-app-shell"
+name = "deskbase"
 version = "0.1.0"
 description = "Tauri 2 desktop app shell: architecture + auto-update + design system"
 edition = "2021"
