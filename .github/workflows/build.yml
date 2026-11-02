@@ -211,9 +211,14 @@ jobs:
       - name: 📦 打包给用户下载的 zip
         run: |
           set -e
-          VERSION=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
-          APP_DIR=src-tauri/target/release/bundle/macos
-          APP_NAME=$(node -e "console.log(require('./src-tauri/tauri.conf.json').productName)")
+          # ⚠️ 本步与下面 Collect/upload-artifact/gh-release 全部用**仓库根相对**路径：
+          # 本步没有 working-directory，cwd 就是仓库根；而 upload-artifact 的 path 与
+          # action-gh-release 的 files 同样按仓库根解析。2026-11-02 v0.1.1 首 tag 实测
+          # 踩过：这里原来写 ./src-tauri/...（desktop/ 相对），node require 在仓库根
+          # 直接 MODULE_NOT_FOUND，mac 产物一个都没上去 Release。
+          VERSION=$(node -e "console.log(require('./desktop/src-tauri/tauri.conf.json').version)")
+          APP_DIR=desktop/src-tauri/target/release/bundle/macos
+          APP_NAME=$(node -e "console.log(require('./desktop/src-tauri/tauri.conf.json').productName)")
           ZIP="deskbase_${VERSION}_aarch64-apple-darwin.zip"
           # 用 ditto 而不是 zip：它会保留 .app 的资源叉与符号链接，
           # 普通 zip 会破坏 bundle 结构导致解压后打不开。
@@ -224,13 +229,21 @@ jobs:
         run: |
           set -e
           mkdir -p dist-out
-          cp src-tauri/target/release/bundle/macos/*.app.tar.gz dist-out/ 2>/dev/null || true
-          cp src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist-out/ 2>/dev/null || true
+          cp desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz dist-out/ 2>/dev/null || true
+          cp desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist-out/ 2>/dev/null || true
           cp deskbase_*_aarch64-apple-darwin.zip dist-out/ 2>/dev/null || true
           # 平台片段只作为 artifact 传给 build-windows 合并，**不** attach 到 Release
-          cp dist/updater-macos.json dist-out/ 2>/dev/null || true
-          cp dist/updater-macos-gitee.json dist-out/ 2>/dev/null || true
+          cp desktop/dist/updater-macos.json dist-out/ 2>/dev/null || true
+          cp desktop/dist/updater-macos-gitee.json dist-out/ 2>/dev/null || true
           ls -l dist-out
+          # 🔴 防静默缺失：上面的 cp 全带 `|| true`，路径再写错也不会在这一步暴露——
+          # 显式校验关键产物在场，缺一个就 fail（宁可红在这里，也不要 Release 缺件）。
+          missing=0
+          for f in deskbase_*_aarch64-apple-darwin.zip dist-out/*.app.tar.gz dist-out/*.app.tar.gz.sig dist-out/updater-macos.json; do
+            if [ ! -e "$f" ]; then echo "❌ 关键产物缺失: $f"; missing=1; fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          echo "✅ mac 产物清单齐全"
 
       - uses: actions/upload-artifact@v5
         with:
